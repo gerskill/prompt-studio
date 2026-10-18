@@ -22,7 +22,7 @@
   // ---------- Stockage ----------
   const defaults = () => ({
     version: 1,
-    settings: { theme: 'system', model: 'claude-sonnet-5-5', french: true, profil: '' },
+    settings: { theme: 'system', model: 'claude-sonnet-5-5', french: true, profil: '', target: 'claude' },
     projects: [],
     feedback: [],
     drafts: { wizard: null, editor: '', phrase: null }
@@ -146,12 +146,12 @@
 
   // ---------- Construction du prompt (assistant) ----------
   const PROOF = {
-    stats: 'Aucune statistique inventée : si un chiffre serait utile mais que tu ne l’as pas, écris [CHIFFRE À SOURCER].',
-    examples: 'Aucun exemple, témoignage ou citation fabriqué présenté comme réel.',
+    stats: 'Utilise uniquement des chiffres vérifiables : si un chiffre serait utile mais que tu ne l’as pas, écris [CHIFFRE À SOURCER].',
+    examples: 'Présente comme réels uniquement les exemples, témoignages et citations que tu peux attribuer ; sinon, annonce « Exemple fictif : ».',
     obs: 'Sépare clairement ce qui est observé (constaté) de ce qui est certain (établi).',
     spec: 'Présente toute spéculation comme telle, en commençant par « Hypothèse : ».',
     sources: 'Cite tes sources quand tu en as ; sinon, dis que tu n’en as pas.',
-    unknown: 'Si tu ne sais pas, dis-le au lieu d’inventer.'
+    unknown: 'Si tu ne sais pas, dis-le clairement et indique ce qu’il faudrait vérifier.'
   };
   const PROOF_LABELS = {
     stats: 'Aucune statistique inventée', examples: 'Aucun exemple ou témoignage fabriqué', obs: 'Séparer observations et certitudes',
@@ -177,8 +177,8 @@
       text: () => 'TABLEAU DES RISQUES\nTermine par un tableau : Risque | Probabilité | Impact | Parade.',
       short: () => 'Termine par un tableau Risque | Probabilité | Impact | Parade.' },
     verif: { title: 'Vérification finale', desc: 'Claude relit sa réponse avec une liste de contrôle avant de l’envoyer.',
-      text: () => 'VÉRIFICATION FINALE (avant d’envoyer ta réponse)\n[ ] L’objectif est atteint\n[ ] Les contraintes sont respectées\n[ ] Le format demandé est respecté\n[ ] Aucun chiffre ni exemple inventé\nCorrige ce qui ne va pas avant de répondre.',
-      short: () => 'Avant d’envoyer, vérifie : objectif atteint, contraintes et format respectés, rien d’inventé.' }
+      text: () => 'VÉRIFICATION FINALE (avant d’envoyer ta réponse)\n[ ] L’objectif est atteint\n[ ] Les contraintes sont respectées\n[ ] Le format demandé est respecté\n[ ] Chaque chiffre et exemple est réel ou signalé comme tel\n[ ] La contrainte clé du RAPPEL est respectée\nCorrige ce qui ne va pas avant de répondre.',
+      short: () => 'Avant d’envoyer, vérifie : objectif atteint, contraintes et format respectés, chaque fait est réel ou signalé.' }
   };
   const BLOCK_ORDER = ['profil', 'mode', 'reflexion', 'etapes', 'tags', 'risques', 'verif'];
 
@@ -195,7 +195,7 @@
 
   function emptyWizard() {
     return { role: '', roleExtra: '', objectif: '', livrable: '', audience: '', niveau: '', contexte: '', contraintes: '', exclure: '',
-      format: 'libre', formatDetail: '', ton: [], tonExtra: '', longueur: 'auto', longueurDetail: '', exemples: '',
+      format: 'libre', formatDetail: '', ton: [], tonExtra: '', longueur: 'auto', longueurDetail: '', exemples: '', exemplesNote: '', etapes: '', rappel: '',
       proof: { stats: true, examples: true, obs: true, spec: true, sources: false, unknown: true },
       blocks: { profil: false, mode: false, reflexion: true, etapes: false, tags: true, risques: false, verif: true },
       profilText: '', modeDefault: 'complet', french: true };
@@ -203,81 +203,176 @@
   const lines = (s) => String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);
   const bullets = (s) => lines(s).map((l) => (/^[-•*\d]/.test(l) ? l.replace(/^[•*]\s*/, '- ') : '- ' + l)).join('\n');
 
-  function buildPrompt(w, mode = 'complet') {
+  // ---------- Règles formulées positivement ----------
+  // Renvoie une reformulation positive d'une règle négative (« N'invente pas… » → « Utilise uniquement… »), ou null
+  const capF = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+  const endDot = (x) => (/[.!?:»)]$/.test(x) ? x : x + '.');
+  const NEG_RE = /(?:^|[\s(«"'])(?:ne|n['’])\s*\p{L}+(?:-\p{L}+)?\s+(?:pas|jamais|aucun|aucune|rien|plus)(?![\p{L}])|^\s*(?:[-•*]\s*)?(?:pas de|pas d['’]|aucun|aucune|jamais|évite|éviter|interdit|surtout pas)(?![\p{L}])/iu;
+  function positive(line) {
+    const raw = String(line).trim(); const m0 = raw.match(/^([-•*]\s*|\d+[.)]\s*)/); const pre = m0 ? m0[1] : ''; const t = raw.slice(pre.length).replace(/[.;]\s*$/, '');
+    const R = [
+      [/^(?:n['’]|ne\s+)?invente\s+(?:aucun|aucune|pas de|pas d['’]|rien)\s*(.*)$/i, (m) => `Utilise uniquement des ${plur(m[1] || 'informations')} que tu peux vérifier ou que je fournis ; sinon, écris [À VÉRIFIER]`],
+      [/^aucun(?:e)?\s+(.+?)\s+(?:inventé|inventée|inventés|inventées|fabriqué|fabriquée|fabriqués)(?=[\s:,;.]|$)\s*[:,;]?\s*(.*)$/i, (m) => `Utilise uniquement des ${plur(m[1])} que tu peux vérifier ou que je fournis${m[2] ? ' : ' + m[2] : ''}`],
+      [/^(?:n['’])utilise\s+(?:pas|jamais|aucun|aucune)\s+(de\s+|d['’]|les\s+|des\s+)?(.+)$/i, (m) => `Utilise uniquement [ce que tu veux à la place] plutôt que ${({ 'de': 'des ', 'les': 'les ', 'des': 'des ' })[(m[1] || '').trim()] || (m[1] ? 'd’' : '')}${m[2]}`],
+      [/^(?:n['’]|ne\s+)ajoute\s+(?:aucun|aucune|rien|pas de|pas d['’])\s*(.*)$/i, (m) => (m[1] && !/^qui /.test(m[1]) ? `Utilise uniquement les ${m[1]} fournis` : 'Utilise uniquement ce qui est fourni')],
+      [/^(?:pas de|sans|évite(?:r)?(?: le| du)?|aucun)\s+jargon\b.*$/i, () => 'Utilise des mots simples de tous les jours, et explique chaque terme technique'],
+      [/^(?:ne\s+|n['’])?dépasse\s+pas\s+(.+)$/i, (m) => `${capF(m[1])} maximum`],
+      [/^(?:ne\s+)change\s+pas\s+(.+)$/i, (m) => `Garde ${m[1]} tel quel`],
+      [/^(?:n['’])oublie\s+pas\s+(?:de\s+|d['’])?(.+)$/i, (m) => `Pense à ${m[1]}`],
+      [/^(?:ne\s+)?(?:traduis|traduit)\s+pas\s+mot\s+à\s+mot(.*)$/i, (m) => `Traduis le sens, avec des tournures naturelles${m[1] || ''}`],
+      [/^(?:ne\s+)?(?:mets|met)\s+pas\s+(.+)$/i, (m) => `Laisse de côté ${m[1]}`],
+      [/^(?:pas de|pas d['’]|aucun|aucune|évite|éviter|interdit\s*:?|surtout pas)\s+(.+)$/i, (m) => `Laisse de côté : ${m[1]}`]
+    ];
+    for (const [re, f] of R) { const m = t.match(re); if (m) return pre + endDot(capF(f(m).trim())); }
+    return null;
+  }
+  const plur = (x) => x.split(' ').map((w, i) => (i === 0 && !/[sxz]$/.test(w) ? w + 's' : w)).join(' ');
+  const isNegative = (line) => NEG_RE.test(String(line)) && !/^\s*(?:si |s['’]il )/i.test(line);
+
+  // ---------- Construction du prompt (méthode ASPECCT + blocs V2) ----------
+  // Action, Étapes, Persona, Exemples, Contexte, Contraintes, Modèle, puis rappel final de la contrainte clé
+  const TARGETS = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', autre: 'Autre IA' };
+  const currentTarget = () => (state && state.settings && TARGETS[state.settings.target] ? state.settings.target : 'claude');
+  const stripNum = (l) => l.replace(/^(?:\d+[.)]|[-•*])\s*/, '');
+  const numbered = (s) => lines(s).map((l, i) => `${i + 1}. ${stripNum(l)}`).join('\n');
+  function keyConstraint(w) {
+    const r = (w.rappel || '').trim();
+    if (r) return r;
+    const c = lines(w.contraintes)[0];
+    return c ? stripNum(c) : '';
+  }
+  // Rend les sections selon l'IA visée (Claude : balises XML pour le contexte et les exemples ; ChatGPT : titres Markdown)
+  function renderSections(S, target = 'claude') {
+    const TAG = { contexte: 'contexte', action: 'tache', exemples: 'exemples' };
+    return S.filter((x) => x && (x.b || x.h)).map((x) => {
+      let b = x.b;
+      if (target === 'claude' && TAG[x.k] && b) b = `<${TAG[x.k]}>\n${b}\n</${TAG[x.k]}>`;
+      const h = x.h ? (target === 'chatgpt' ? '## ' + x.h : x.h) : '';
+      return [h, b].filter(Boolean).join('\n');
+    }).join('\n\n');
+  }
+  const roleLine = (w, P) => (w.role.trim() ? `Tu es ${w.role.trim().replace(/^(tu es|vous êtes)\s+/i, '')}${w.roleExtra.trim() ? '. ' + w.roleExtra.trim() : ''}.`.replace(/\.\.$/, '.') : `Tu es ${P}.`);
+  const parts3 = (w) => ({
+    tone: [...(w.ton || []), w.tonExtra].filter((x) => x && x.trim()).join(', '),
+    fmt: [FORMATS[w.format] || '', w.formatDetail].filter(Boolean).join(' '),
+    len: w.longueur === 'perso' ? w.longueurDetail : [LENGTHS[w.longueur] || '', w.longueur !== 'perso' && w.longueurDetail ? w.longueurDetail : ''].filter(Boolean).join(' ')
+  });
+  const proofsOf = (w) => { const p = Object.keys(PROOF).filter((k) => w.proof && w.proof[k]).map((k) => PROOF[k]); if (w.french) p.push('Réponds en français.'); return p; };
+  const consOf = (w) => { const c = lines(w.contraintes).map((l) => positive(l) || l); lines(w.exclure).forEach((l) => c.push(positive(l) || `Laisse de côté : ${stripNum(l).replace(/[.;]$/, '')}.`)); return c; };
+  function sectionsOf(w, opt = {}) {
     const P = '[à compléter]';
-    const tone = [...(w.ton || []), w.tonExtra].filter((x) => x && x.trim()).join(', ');
-    const fmt = [FORMATS[w.format] || '', w.formatDetail].filter(Boolean).join(' ');
-    const len = w.longueur === 'perso' ? w.longueurDetail : [LENGTHS[w.longueur] || '', w.longueur !== 'perso' && w.longueurDetail ? w.longueurDetail : ''].filter(Boolean).join(' ');
-    const proofs = Object.keys(PROOF).filter((k) => w.proof && w.proof[k]).map((k) => PROOF[k]);
-    if (w.french) proofs.push('Réponds en français.');
+    const target = opt.target || currentTarget();
+    const { tone, fmt, len } = parts3(w);
+    const proofs = proofsOf(w);
     const blocks = BLOCK_ORDER.filter((k) => w.blocks && w.blocks[k]);
-    const role = w.role.trim() ? `Tu es ${w.role.trim().replace(/^(tu es|vous êtes)\s+/i, '')}${w.roleExtra.trim() ? '. ' + w.roleExtra.trim() : ''}.`.replace(/\.\.$/, '.') : `Tu es ${P}.`;
-
-    if (mode === 'court') {
-      const parts = [role];
-      if (blocks.includes('profil')) parts.push(BLOCKS.profil.short(w));
-      const dot = (x) => (/[.!?:»)]$/.test(x) ? x : x + '.');
-      parts.push(`Objectif : ${dot(w.objectif.trim() || P)}${w.livrable.trim() ? ' Résultat attendu : ' + dot(w.livrable.trim()) : ''}`);
-      if (w.audience.trim() || w.niveau) parts.push(`Pour : ${[w.audience.trim(), LEVELS[w.niveau] ? 'niveau ' + LEVELS[w.niveau] : ''].filter(Boolean).join(', ')}.`);
-      if (w.contexte.trim()) parts.push(`Contexte : ${w.contexte.trim()}`);
-      if (w.contraintes.trim()) parts.push(`Contraintes : ${lines(w.contraintes).join(' ; ')}.`);
-      if (w.exclure.trim()) parts.push(`À éviter : ${lines(w.exclure).join(' ; ')}.`);
-      const fl = [fmt && 'Format : ' + fmt, tone && 'Ton : ' + tone + '.', len && 'Longueur : ' + len].filter(Boolean).join(' ');
-      if (fl) parts.push(fl);
-      if (w.exemples.trim()) parts.push(`Exemple :\n"""\n${w.exemples.trim()}\n"""`);
-      blocks.filter((b) => b !== 'profil').forEach((b) => parts.push(BLOCKS[b].short(w)));
-      if (proofs.length) parts.push('Règles : ' + proofs.map((p) => p.replace(/\.$/, '')).join(' ; ') + '.');
-      return parts.map((p) => p.replace(/\.\.$/, '.')).join('\n');
-    }
-
+    const cons = consOf(w);
+    const key = keyConstraint(w);
+    const keyPos = key ? (positive(key) || key) : '';
     const S = [];
-    S.push(`RÔLE\n${role}`);
-    if (blocks.includes('profil')) S.push(BLOCKS.profil.text(w));
-    if (w.contexte.trim()) S.push(`${w.contexteTitle || 'CONTEXTE'}\n${w.contexte.trim()}`);
-    S.push(`OBJECTIF\n${w.objectif.trim() || P}${w.livrable.trim() ? '\nRésultat attendu : ' + w.livrable.trim() : ''}`);
-    if (w.audience.trim() || w.niveau) S.push(`AUDIENCE\n${[w.audience.trim(), LEVELS[w.niveau] ? 'Niveau : ' + LEVELS[w.niveau] + '.' : ''].filter(Boolean).join('\n')}`);
-    if (w.contraintes.trim()) S.push(`CONTRAINTES\n${bullets(w.contraintes)}`);
-    if (w.exclure.trim()) S.push(`À NE PAS INCLURE\n${bullets(w.exclure)}`);
+    S.push({ k: 'role', h: 'RÔLE / PERSONA', b: roleLine(w, P) });
+    if (blocks.includes('profil')) { const t = BLOCKS.profil.text(w).split('\n'); S.push({ k: 'profil', h: t[0], b: t.slice(1).join('\n') }); }
+    if (w.contexte.trim()) S.push({ k: 'contexte', h: w.contexteTitle || 'CONTEXTE', b: w.contexte.trim() });
+    S.push({ k: 'action', h: 'ACTION', b: `${w.objectif.trim() || P}${w.livrable.trim() ? '\nC’est réussi quand : ' + w.livrable.trim() : ''}` });
+    if (w.audience.trim() || w.niveau) S.push({ k: 'audience', h: 'AUDIENCE', b: [w.audience.trim(), LEVELS[w.niveau] ? 'Niveau : ' + LEVELS[w.niveau] + '.' : ''].filter(Boolean).join('\n') });
+    if (lines(w.etapes).length) S.push({ k: 'etapes', h: 'ÉTAPES', b: numbered(w.etapes) + (target === 'claude' && !blocks.includes('reflexion') ? '\nRéfléchis à chaque étape avant de passer à la suivante.' : '') });
+    const ex = (w.exemples || '').trim(), exN = (w.exemplesNote || '').trim();
+    if (ex || exN) S.push({ k: 'exemples', h: 'EXEMPLES' + (ex ? ' (pour le style et le niveau attendus, pas à recopier)' : ''), b: [exN, ex ? '"""\n' + ex + '\n"""' : ''].filter(Boolean).join('\n') });
+    if (cons.length) S.push({ k: 'contraintes', h: 'CONTRAINTES / RÈGLES', b: cons.map((c) => '- ' + stripNum(c)).join('\n') });
     const fl = [fmt && 'Format : ' + fmt, len && 'Longueur : ' + len, tone && 'Ton : ' + tone + '.'].filter(Boolean);
-    if (fl.length) S.push(`FORMAT DE LA RÉPONSE\n${fl.join('\n')}`);
-    if (w.exemples.trim()) S.push(`EXEMPLE (pour le style et le niveau attendus, pas à recopier)\n"""\n${w.exemples.trim()}\n"""`);
-    if (blocks.includes('reflexion')) S.push(BLOCKS.reflexion.text(w));
-    if (blocks.includes('etapes')) S.push(BLOCKS.etapes.text(w));
-    if (blocks.includes('mode')) S.push(BLOCKS.mode.text(w));
-    if (proofs.length) S.push(`RÈGLES DE PREUVE\n${proofs.map((p) => '- ' + p).join('\n')}`);
-    if (blocks.includes('tags')) S.push(BLOCKS.tags.text(w));
-    if (blocks.includes('risques')) S.push(BLOCKS.risques.text(w));
-    if (blocks.includes('verif')) S.push(BLOCKS.verif.text(w));
-    return S.join('\n\n');
+    if (target === 'gemini') fl.push('Si plusieurs approches sont possibles, compare-les en quelques lignes (points forts, limites) avant de recommander la meilleure.');
+    if (fl.length) S.push({ k: 'modele', h: 'MODÈLE DE RÉPONSE', b: fl.join('\n') });
+    if (blocks.includes('reflexion')) S.push({ k: 'reflexion', b: BLOCKS.reflexion.text(w) });
+    if (blocks.includes('etapes')) S.push({ k: 'pas', b: BLOCKS.etapes.text(w) });
+    if (blocks.includes('mode')) S.push({ k: 'mode', b: BLOCKS.mode.text(w) });
+    if (proofs.length) S.push({ k: 'preuve', h: 'RÈGLES DE PREUVE', b: proofs.map((p) => '- ' + p).join('\n') });
+    if (blocks.includes('tags')) S.push({ k: 'tags', b: BLOCKS.tags.text(w) });
+    if (blocks.includes('risques')) S.push({ k: 'risques', b: BLOCKS.risques.text(w) });
+    if (blocks.includes('verif')) S.push({ k: 'verif', b: BLOCKS.verif.text(w) });
+    if (keyPos) S.push({ k: 'rappel', h: 'RAPPEL', b: `${endDot(stripNum(keyPos))} C’est important !` });
+    if (target === 'chatgpt') S.push({ k: 'start', b: 'Pour commencer : confirme en une phrase ce que tu as compris de la tâche, puis réponds.' });
+    return S;
+  }
+  function buildPrompt(w, mode = 'complet', opt = {}) {
+    const P = '[à compléter]';
+    const target = opt.target || currentTarget();
+    if (mode !== 'court') return renderSections(sectionsOf(w, { target }), target);
+    const { tone, fmt, len } = parts3(w);
+    const proofs = proofsOf(w);
+    const blocks = BLOCK_ORDER.filter((k) => w.blocks && w.blocks[k]);
+    const parts = [roleLine(w, P)];
+    if (blocks.includes('profil')) parts.push(BLOCKS.profil.short(w));
+    parts.push(`Action : ${endDot(w.objectif.trim() || P)}${w.livrable.trim() ? ' C’est réussi quand : ' + endDot(w.livrable.trim()) : ''}`);
+    if (w.audience.trim() || w.niveau) parts.push(`Pour : ${[w.audience.trim(), LEVELS[w.niveau] ? 'niveau ' + LEVELS[w.niveau] : ''].filter(Boolean).join(', ')}.`);
+    if (w.contexte.trim()) parts.push(`Contexte : ${w.contexte.trim()}`);
+    if (lines(w.etapes).length) parts.push(`Étapes : ${lines(w.etapes).map((l, i) => `${i + 1}) ${stripNum(l).replace(/[.;]$/, '')}`).join(' ; ')}.`);
+    const cons = consOf(w).map((c) => stripNum(c).replace(/[.;]$/, ''));
+    if (cons.length) parts.push(`Règles : ${cons.join(' ; ')}.`);
+    const fl = [fmt && 'Format : ' + fmt, tone && 'Ton : ' + tone + '.', len && 'Longueur : ' + len].filter(Boolean).join(' ');
+    if (fl) parts.push(fl);
+    if ((w.exemplesNote || '').trim()) parts.push('Exemples : ' + w.exemplesNote.trim());
+    if ((w.exemples || '').trim()) parts.push('Exemple :\n"""\n' + w.exemples.trim() + '\n"""');
+    blocks.filter((b) => b !== 'profil').forEach((b) => parts.push(BLOCKS[b].short(w)));
+    if (proofs.length) parts.push('Preuves : ' + proofs.map((p) => p.replace(/\.$/, '')).join(' ; ') + '.');
+    const key = keyConstraint(w); if (key) parts.push(`Rappel : ${endDot(stripNum(positive(key) || key))} C’est important !`);
+    if (target === 'chatgpt') parts.push('Commence par confirmer en une phrase ce que tu as compris.');
+    return parts.map((p) => p.replace(/\.\.$/, '.')).join('\n');
   }
 
   // ---------- Analyse heuristique ----------
   const B = '(?<![\\p{L}\\p{N}_])', E = '(?![\\p{L}\\p{N}_])';
   const rx = (alts) => new RegExp(B + '(?:' + alts + ')' + E, 'iu');
+  // Critères : d'abord les 7 éléments de la méthode ASPECCT, puis les compléments (public, longueur, ton, preuves, vérification)
+  const lastPart = (t) => { const L = t.trim().split('\n'); return L.slice(Math.max(0, L.length - Math.max(4, Math.ceil(L.length * 0.2)))).join('\n'); };
+  function keyFromText(t) {
+    const L = String(t).split('\n'); let inC = false;
+    for (const l of L) {
+      const h = l.trim().replace(/^#+\s*/, '');
+      if (/^[A-ZÀ-ÝŒ][A-ZÀ-ÝŒ /’'()-]{2,}$/.test(h)) { inC = /CONTRAINTE|RÈGLE|REGLE/.test(h) && !/PREUVE/.test(h); continue; }
+      if (inC && l.trim()) return stripNum(l.trim());
+    }
+    return '';
+  }
   const CRITERIA = [
-    { id: 'role', w: 12, name: 'Rôle défini', ok: 'Claude sait quel expert il doit être.', no: 'Dis à Claude quel expert il doit être (« Tu es un… »).',
-      test: rx("tu es|vous êtes|agis comme|agis en|joue le rôle|en tant que|rôle|you are|act as|incarne"), insert: 'RÔLE\nTu es un expert en [domaine], avec [nombre] ans d’expérience en [spécialité].' },
-    { id: 'goal', w: 16, name: 'Objectif clair', ok: 'La tâche demandée est identifiable.', no: 'Écris ce que tu veux obtenir, avec un verbe d’action (rédige, analyse, crée…).',
-      test: rx("objectif|but|mission|tâche|je veux|j['’]aimerais|j['’]ai besoin|aide-moi|crée|créer|rédige|rédiger|écris|écrire|génère|analyse|analyser|résume|résumer|traduis|explique|corrige|propose|conçois|liste|compare|goal|task|write|create"), insert: 'OBJECTIF\n[Ce que tu veux obtenir, avec un verbe d’action]\nC’est réussi quand : [critère vérifiable]' },
-    { id: 'audience', w: 9, name: 'Public visé', ok: 'Claude sait pour qui il écrit.', no: 'Précise pour qui est la réponse et son niveau.',
-      test: rx("audience|public|lecteurs?|lectrices?|destiné|destinée|cible|clients?|utilisateurs?|débutants?|novices?|niveau|pour (?:des|les|un|une|mon|ma|mes)|élèves?|étudiants?|enfants?|équipe|recruteurs?"), insert: 'AUDIENCE\n[Pour qui est la réponse ?] — Niveau : [débutant / intermédiaire / expert]' },
-    { id: 'context', w: 11, name: 'Contexte donné', ok: 'Il y a des éléments de contexte.', no: 'Explique la situation : pourquoi tu demandes, ce qui existe déjà.',
+    { id: 'goal', g: 'A', w: 16, name: 'Action explicite', ok: 'La tâche est dite clairement, avec un verbe d’action.', no: 'Écris la tâche en une phrase avec un verbe d’action (rédige, analyse, crée…). Tu peux y glisser la contrainte clé : « Rédige un post de moins de 280 caractères ».',
+      test: rx("action|objectif|but|mission|tâche|je veux|j['’]aimerais|j['’]ai besoin|aide-moi|crée|créer|rédige|rédiger|écris|écrire|génère|analyse|analyser|résume|résumer|traduis|explique|corrige|propose|conçois|liste|compare|goal|task|write|create"), insert: 'ACTION\n[La tâche en une phrase, avec un verbe d’action et la contrainte clé]\nC’est réussi quand : [critère vérifiable]' },
+    { id: 'steps', g: 'É', w: 9, name: 'Étapes', ok: 'Une suite d’étapes guide l’IA.', no: 'Donne une suite numérotée d’étapes à suivre : l’IA avance dans l’ordre au lieu de deviner.',
+      test: (t) => (t.match(/^\s*(?:\d+[.)]|étape\s*\d)/gimu) || []).length >= 2 || rx("étapes|d['’]abord|ensuite|pour finir|enfin|steps?").test(t), insert: 'ÉTAPES\n1. [Ce que l’IA fait en premier]\n2. [Ensuite]\n3. [Pour finir]' },
+    { id: 'role', g: 'P', w: 12, name: 'Persona (rôle)', ok: 'L’IA sait quel expert elle doit être, avec quelle voix.', no: 'Dis quel expert l’IA doit incarner (« Tu es un… ») : cela fixe sa voix et son point de vue.',
+      test: rx("tu es|vous êtes|agis comme|agis en|joue le rôle|en tant que|rôle|persona|you are|act as|incarne"), insert: 'RÔLE / PERSONA\nTu es un expert en [domaine], avec [nombre] ans d’expérience en [spécialité].' },
+    { id: 'examples', g: 'E', w: 8, name: 'Exemples', ok: 'Des exemples montrent ce qui est attendu.', no: 'Montre ce que tu attends : plusieurs exemples variés valent mieux qu’un seul exemple trop précis. Tu peux les lister entre parenthèses.',
+      test: (t) => rx("exemples?|par ex|ex\\s?:|comme ceci|comme ça|example").test(t) || /"""|```|<exemples?>/i.test(t), insert: 'EXEMPLES (plusieurs exemples variés, pas à recopier)\n- [Exemple 1]\n- [Exemple 2, différent du premier]\nOu en une ligne : (exemple 1, exemple 2, exemple 3)' },
+    { id: 'context', g: 'C', w: 10, name: 'Contexte', ok: 'L’environnement et la situation sont décrits.', no: 'Explique la situation : pourquoi tu demandes, ce qui existe déjà, dans quel cadre.',
       test: (t) => rx("contexte|situation|actuellement|aujourd['’]hui|en ce moment|mon projet|mon entreprise|j['’]ai déjà|voici|background|context").test(t) || words(t) > 120, insert: 'CONTEXTE\n[La situation, ce qui existe déjà, pourquoi tu demandes]' },
-    { id: 'format', w: 10, name: 'Format de réponse', ok: 'La forme de la réponse est précisée.', no: 'Dis sous quelle forme tu veux la réponse (liste, tableau, plan, code…).',
-      test: rx("format|tableau|liste|puces|json|markdown|titres?|intertitres?|sections?|structure|structuré|étapes|paragraphes?|plan|code|csv|table|bullet"), insert: 'FORMAT DE LA RÉPONSE\n[Liste / tableau / étapes numérotées / code…]' },
-    { id: 'constraints', w: 10, name: 'Contraintes', ok: 'Des limites ou exigences sont posées.', no: 'Ajoute ce qui est obligatoire ou interdit.',
-      test: rx("ne (?:pas|jamais)|n['’]\\p{L}+ (?:pas|jamais)|évite|éviter|interdit|maximum|minimum|max|au plus|au moins|limite|contraintes?|obligatoire|doit|doivent|uniquement|seulement|sans|must|don['’]t|never"), insert: 'CONTRAINTES\n- [Ce qui est obligatoire]\n- [Ce qui est interdit]' },
-    { id: 'length', w: 6, name: 'Longueur', ok: 'Une longueur est indiquée.', no: 'Indique une longueur (par exemple « 200 mots maximum »).',
+    { id: 'constraints', g: 'C', w: 10, name: 'Contraintes / règles', ok: 'Des règles ou limites sont posées.', no: 'Ajoute les règles à respecter, formulées positivement (« Utilise uniquement… » plutôt que « N’utilise pas… »).',
+      test: rx("ne (?:pas|jamais)|n['’]\\p{L}+ (?:pas|jamais)|évite|éviter|interdit|maximum|minimum|max|au plus|au moins|limite|contraintes?|règles?|obligatoire|doit|doivent|uniquement|seulement|sans|must|don['’]t|never"), insert: 'CONTRAINTES / RÈGLES\n- [Utilise uniquement…]\n- [Garde…]' },
+    { id: 'format', g: 'M', w: 10, name: 'Modèle de réponse', ok: 'La forme de la réponse est précisée.', no: 'Précise la forme : Markdown, bloc de code, tableau, puces avec justification, formule pour les titres…',
+      test: rx("format|modèle de réponse|tableau|liste|puces|json|markdown|titres?|intertitres?|sections?|structure|structuré|paragraphes?|plan|code|csv|table|bullet"), insert: 'MODÈLE DE RÉPONSE\n[Markdown / bloc de code / tableau / puces avec une justification par point…]' },
+    { id: 'rappel', g: '+', w: 5, name: 'Rappel final de la contrainte clé', ok: 'La contrainte la plus importante est répétée à la fin.', no: 'Répète ta contrainte la plus importante tout à la fin : c’est ce que l’IA lit en dernier.',
+      test: (t) => rx("rappel|c['’]est important|n['’]oublie pas|souviens-toi|surtout|important").test(lastPart(t)),
+      insert: (t) => { const k = keyFromText(t || ''); return `RAPPEL\n${k ? endDot(positive(k) || k) : '[Ta contrainte la plus importante, répétée ici.]'} C’est important !`; } },
+    { id: 'positive', g: '+', w: 4, name: 'Règles formulées positivement', ok: 'Les règles disent quoi faire plutôt que quoi éviter.', no: 'Certaines règles disent seulement quoi éviter : dis plutôt quoi faire (voir les suggestions plus bas).',
+      test: (t) => !negLines(t).length, insert: null },
+    { id: 'audience', g: '+', w: 6, name: 'Public visé', ok: 'L’IA sait pour qui elle écrit.', no: 'Précise pour qui est la réponse et son niveau.',
+      test: rx("audience|public|lecteurs?|lectrices?|destiné|destinée|cible|clients?|utilisateurs?|débutants?|novices?|niveau|pour (?:des|les|un|une|mon|ma|mes)|élèves?|étudiants?|enfants?|équipe|recruteurs?"), insert: 'AUDIENCE\n[Pour qui est la réponse ?] — Niveau : [débutant / intermédiaire / expert]' },
+    { id: 'length', g: '+', w: 4, name: 'Longueur', ok: 'Une longueur est indiquée.', no: 'Indique une longueur (par exemple « 200 mots maximum »).',
       test: (t) => /\d+\s*(?:mots|lignes|phrases|caractères|pages|paragraphes|points|idées|words|lines)/iu.test(t) || rx("court|courte|bref|brève|concis|concise|détaillé|détaillée|longueur|résumé en").test(t), insert: 'LONGUEUR\n[Par exemple : 300 mots maximum]' },
-    { id: 'tone', w: 6, name: 'Ton', ok: 'Le ton est précisé.', no: 'Précise le ton (simple, professionnel, chaleureux…).',
+    { id: 'tone', g: '+', w: 4, name: 'Ton', ok: 'Le ton est précisé.', no: 'Précise le ton (simple, professionnel, chaleureux…).',
       test: rx("ton|style|registre|formel|formelle|informel|tutoie|tutoiement|vouvoie|chaleureux|professionnel|amical|direct|pédagogue|pédagogique|sans jargon|simple|simplement|tone"), insert: 'TON\n[Simple, direct, chaleureux…]' },
-    { id: 'examples', w: 7, name: 'Exemple fourni', ok: 'Un exemple ou un modèle guide Claude.', no: 'Donne un exemple de ce que tu attends : c’est souvent ce qui aide le plus.',
-      test: (t) => rx("exemples?|par ex|ex\\s?:|comme ceci|comme ça|modèle|example").test(t) || /"""|```|<exemple>/i.test(t), insert: 'EXEMPLE (pour le style attendu, pas à recopier)\n"""\n[Colle un exemple ici]\n"""' },
-    { id: 'proof', w: 7, name: 'Gestion de l’incertitude', ok: 'Claude sait quoi faire quand il n’est pas sûr.', no: 'Demande à Claude de signaler ce qui est incertain plutôt que d’inventer.',
-      test: rx("invent\\p{L}*|sources?|incertain\\p{L}*|à vérifier|sûr|probable|certitudes?|hypothèses?|je ne sais pas|spécul\\p{L}*|fabriqu\\p{L}*|vérifiable"), insert: BLOCKS.tags.text() + '\n- Si tu ne sais pas, dis-le au lieu d’inventer.' },
-    { id: 'verify', w: 6, name: 'Vérification finale', ok: 'Claude se relit avant de répondre.', no: 'Ajoute une liste de contrôle que Claude vérifie avant d’envoyer.',
+    { id: 'proof', g: '+', w: 5, name: 'Gestion de l’incertitude', ok: 'L’IA sait quoi faire quand elle n’est pas sûre.', no: 'Demande à l’IA de signaler ce qui est incertain plutôt que de deviner.',
+      test: rx("invent\\p{L}*|sources?|incertain\\p{L}*|à vérifier|sûr|probable|certitudes?|hypothèses?|je ne sais pas|spécul\\p{L}*|fabriqu\\p{L}*|vérifiable\\p{L}*|vérifier"), insert: BLOCKS.tags.text() + '\n- Si tu ne sais pas, dis-le clairement et indique ce qu’il faudrait vérifier.' },
+    { id: 'verify', g: '+', w: 4, name: 'Vérification finale', ok: 'L’IA se relit avant de répondre.', no: 'Ajoute une liste de contrôle que l’IA vérifie avant d’envoyer.',
       test: rx("vérifi\\p{L}*|relis|relire|contrôle|checklist|check-list|avant de répondre|avant d['’]envoyer|assure-toi|double-check"), insert: BLOCKS.verif.text() }
   ];
+  // Lignes de règles formulées négativement, avec une reformulation positive quand elle est sûre
+  function negLines(t) {
+    const out = []; const seen = new Set();
+    String(t || '').split('\n').forEach((l, i) => {
+      const x = l.trim(); if (!x || x.length > 220 || seen.has(x)) return;
+      if (BOILER().some((b) => b.includes(x))) return; // blocs standard du site : laissés tels quels
+      if (isNegative(x)) { seen.add(x); out.push({ line: i, text: x, fix: positive(x) }); }
+    });
+    return out;
+  }
   const AMBIGUOUS = [
     ['quelque chose', 'dis précisément quoi'], ['des trucs', 'nomme les éléments'], ['truc', 'nomme l’élément'], ['trucs', 'nomme les éléments'],
     ['etc', 'liste tout ce qui compte, ou écris « au minimum : … »'], ['genre', 'donne un exemple précis'], ['un peu', 'donne une quantité'],
@@ -298,7 +393,7 @@
     // on les retire avant de tester les autres critères, pour ne pas compter ce qui n'a pas été précisé.
     let core = t;
     BOILER().forEach((b) => { if (b) core = core.split(b).join(' '); });
-    const results = CRITERIA.map((c) => { const src = c.id === 'proof' || c.id === 'verify' ? t : core; return { id: c.id, name: c.name, weight: c.w, pass: wc > 0 && (typeof c.test === 'function' ? c.test(src) : c.test.test(src)), ok: c.ok, no: c.no, insert: c.insert }; });
+    const results = CRITERIA.map((c) => { const src = c.id === 'proof' || c.id === 'verify' ? t : core; return { id: c.id, g: c.g, name: c.name, weight: c.w, pass: wc > 0 && (typeof c.test === 'function' ? c.test(src) : c.test.test(src)), ok: c.ok, no: c.no, insert: typeof c.insert === 'function' ? c.insert(t) : c.insert }; });
     const total = CRITERIA.reduce((a, c) => a + c.w, 0);
     let score = results.reduce((a, r) => a + (r.pass ? r.weight : 0), 0);
     score = Math.round((score / total) * 100);
@@ -320,7 +415,7 @@
       if (/\{\{[^}]+\}\}/.test(t)) notes.push({ kind: 'warn', text: 'Il reste des variables {{…}} non remplies.' });
     }
     const level = score >= 80 ? 'Solide' : score >= 55 ? 'À compléter' : 'Fragile';
-    return { score, level, results, amb, notes, words: wc, chars: t.length };
+    return { score, level, results, amb, notes, neg: wc ? negLines(t) : [], words: wc, chars: t.length };
   }
 
   // ---------- Diff (lignes, LCS) ----------
@@ -354,7 +449,7 @@
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: state.settings.model || 'claude-sonnet-5-5', max_tokens: opts.max_tokens || 4096, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify(Object.assign({ model: state.settings.model || 'claude-sonnet-5-5', max_tokens: opts.max_tokens || 4096, messages: [{ role: 'user', content: prompt }] }, opts.system ? { system: opts.system } : {})),
       signal: opts.signal
     });
     let data = null; try { data = await res.json(); } catch (e) {}
@@ -366,12 +461,10 @@
     }
     return (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
   }
-  const improveMeta = (p) => `Tu es un expert en rédaction de prompts pour Claude.
-
-Améliore le prompt ci-dessous pour qu'il soit plus clair, plus précis et plus efficace, sans changer son intention.
+  const improveMeta = (p, withMethod = true) => `${withMethod && PS.method ? PS.method.SYSTEM + '\n\n' : ''}Améliore le prompt ci-dessous pour qu'il soit plus clair, plus précis et plus efficace, sans changer son intention.
 - Garde la langue d'origine.
-- Ajoute ce qui manque (rôle, objectif, public, contexte, format, contraintes, exemple, vérification) uniquement si c'est utile ; mets entre crochets [ ] ce que l'auteur doit compléter lui-même.
-- N'invente aucun fait, chiffre ou exemple présenté comme réel.
+- Ajoute ce qui manque (persona, action, étapes, exemples, contexte, contraintes formulées positivement, modèle de réponse, rappel final) uniquement si c'est utile ; mets entre crochets [ ] ce que l'auteur doit compléter lui-même.
+- Présente comme réels uniquement les faits, chiffres et exemples fournis.
 
 Réponds exactement dans ce format :
 <prompt>
@@ -426,8 +519,8 @@ ${p}
     $, $$, uid, esc, icon, words, fmtDate, fmtDay, debounce, clone, tagsFrom, hash,
     load, init, ready, save, saveSoon, storageInfo, resetAll, defaults, getKey, setKey,
     newProject, newPrompt, findProject,
-    PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, emptyWizard, buildPrompt,
-    CRITERIA, analyze, diffLines, varsOf, fillVars, CLAUDE_URL_MAX, claudeLink, callClaude, improveMeta,
+    PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, FORMATS, LEVELS, emptyWizard, buildPrompt, sectionsOf, renderSections, positive, isNegative, keyConstraint, TARGETS, currentTarget,
+    CRITERIA, analyze, negLines, keyFromText, diffLines, varsOf, fillVars, CLAUDE_URL_MAX, claudeLink, callClaude, improveMeta,
     download, pickFile, projectToMarkdown, slug, copy, KEY, KEY_API
   });
   Object.defineProperty(window.PS, 'state', { get: () => state, set: (v) => { state = v; }, configurable: true });

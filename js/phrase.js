@@ -14,62 +14,62 @@
   const DOMAINS = [
     { id: 'traduction', label: 'Traduction', kw: [['tradui\\w*|traduction|translate|translation', 4]],
       role: 'un traducteur professionnel, attentif au sens et au ton', audience: 'Des lecteurs natifs de la langue d’arrivée.', ton: ['neutre'], format: 'libre', longueur: 'auto',
-      contraintes: ['Garde le sens, le ton et la mise en forme du texte d’origine', 'Ne traduis pas mot à mot quand une tournure naturelle existe', 'Signale entre crochets les expressions sans équivalent direct'],
-      proof: { unknown: true }, blocks: { verif: true }, verb: 'Traduis', livrable: 'La traduction se lit comme un texte écrit directement dans la langue d’arrivée.', needsText: true },
+      contraintes: ['Garde le sens, le ton et la mise en forme du texte d’origine', 'Traduis le sens, avec des tournures naturelles plutôt que mot à mot', 'Signale entre crochets les expressions sans équivalent direct'],
+      proof: { unknown: true }, blocks: { verif: true }, etapes: ['Lis tout le texte pour saisir le sens et le ton', 'Traduis paragraphe par paragraphe', 'Relis la traduction comme un lecteur natif et corrige ce qui sonne faux', 'Liste les passages délicats et explique tes choix'], verb: 'Traduis', livrable: 'La traduction se lit comme un texte écrit directement dans la langue d’arrivée.', needsText: true },
     { id: 'resume', label: 'Résumé', kw: [['resum\\w*|synthes\\w*|synthetis\\w*|points? cles?|tl;?dr|compte[- ]rendu|condense\\w*', 3]],
       role: 'un expert en synthèse, clair et fidèle au texte', audience: 'Moi : je veux l’essentiel sans tout relire.', ton: ['neutre'], format: 'liste', longueur: 'courte',
-      contraintes: ['N’ajoute rien qui ne soit pas dans le texte', 'Garde les chiffres et les noms exacts', 'Commence par l’idée principale en une phrase'],
-      proof: { examples: true, obs: true, spec: true, unknown: true }, blocks: { verif: true }, verb: 'Résume', livrable: 'Je comprends l’essentiel en moins d’une minute.', needsText: true },
+      contraintes: ['Utilise uniquement les informations présentes dans le texte', 'Garde les chiffres et les noms exacts', 'Commence par l’idée principale en une phrase'],
+      proof: { examples: true, obs: true, spec: true, unknown: true }, blocks: { verif: true }, etapes: ['Lis le texte en entier', 'Repère l’idée principale et les points clés', 'Rédige le résumé', 'Vérifie que chaque point vient bien du texte'], rappel: 'Utilise uniquement les informations présentes dans le texte', verb: 'Résume', livrable: 'Je comprends l’essentiel en moins d’une minute.', needsText: true },
     { id: 'emploi', label: 'Emploi / CV', kw: [['lettre de motivation|cv|curriculum|entretien d\'embauche|candidature|candidater|postuler|offre d\'emploi', 5], ['entretien|recrut\\w*|embauche|emploi|job|stage|alternance|linkedin', 3]],
       role: 'un recruteur expérimenté et coach en candidature', audience: 'Un recruteur qui lit vite (moins d’une minute par candidature).', ton: ['professionnel', 'chaleureux'], format: 'paragraphes', longueur: 'moyenne',
-      contraintes: ['N’invente aucune expérience, diplôme, compétence ou chiffre : utilise seulement ce que je fournis, sinon écris [À COMPLÉTER]', 'Mets en avant ce qui correspond le mieux au poste visé', 'Phrases courtes, verbes d’action'],
-      proof: { stats: true, examples: true, unknown: true }, blocks: { reflexion: true, verif: true }, verb: 'Rédige', livrable: 'Le texte est prêt à envoyer après avoir complété les crochets.', needsProfile: true },
+      contraintes: ['Utilise uniquement les expériences, diplômes, compétences et chiffres que je fournis ; sinon, écris [À COMPLÉTER]', 'Mets en avant ce qui correspond le mieux au poste visé', 'Phrases courtes, verbes d’action'],
+      proof: { stats: true, examples: true, unknown: true }, blocks: { reflexion: true, verif: true }, etapes: ['Repère les attentes principales du poste', 'Relie chaque attente à un élément réel de mon parcours', 'Rédige le texte', 'Liste ce que je dois compléter ou vérifier'], exemplesNote: 'Verbes d’action possibles (piloté, conçu, amélioré, formé, négocié).', verb: 'Rédige', livrable: 'Le texte est prêt à envoyer après avoir complété les crochets.', needsProfile: true },
     { id: 'trading', label: 'Trading / Pine', kw: [['pine ?script|pine|tradingview|backtest\\w*', 4], ['trading|trader|bourse|crypto\\w*|bitcoin|btc|forex|indicateur|rsi|macd|bollinger|chandeliers?|scalping|swing|stop[- ]loss|take[- ]profit|portefeuille|etf|actions? en bourse', 2], ['strategie de trading|strategie', 1]],
       role: 'un analyste quantitatif prudent, expert en Pine Script et en backtests', audience: 'Moi, trader particulier.', ton: ['direct', 'technique'], format: 'etapes', longueur: 'auto',
-      contraintes: ['Aucun résultat de performance inventé : sans backtest réel, écris [À TESTER]', 'Pas de promesse de gain ; rappelle les risques et les frais', 'Distingue ce qui est testé de ce qui est une idée'],
-      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, risques: true, verif: true }, verb: 'Crée', livrable: 'Je peux tester le résultat moi-même et je connais ses limites.' },
+      contraintes: ['Présente uniquement des résultats issus d’un vrai backtest ; sinon, écris [À TESTER]', 'Parle de risques et de frais plutôt que de gains promis', 'Distingue ce qui est testé de ce qui est une idée'],
+      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, risques: true, verif: true }, etapes: ['Reformule la stratégie et ses règles', 'Écris le code ou la méthode', 'Explique comment la tester (période, frais, nombre de trades)', 'Termine par les risques et les limites'], rappel: 'Présente uniquement des résultats issus d’un vrai backtest ; sinon, écris [À TESTER]', verb: 'Crée', livrable: 'Je peux tester le résultat moi-même et je connais ses limites.' },
     { id: 'code', label: 'Code / dev', kw: [['code|coder|codage|programmer|programmation|script|python|javascript|typescript|js|php|sql|html|css|react|vue|node|nodejs|api|bug|bugs|debug\\w*|debogu\\w*|stack ?trace|fonction|regex|refactor\\w*|algorithme|git|github|docker|backend|frontend|base de donnees|requete|swift|kotlin|java|c\\+\\+|rust|excel formule|formule excel|macro|vba', 2], ['erreur|plante|crash\\w*|compile\\w*', 1]],
       role: 'un développeur senior, rigoureux et pédagogue', audience: 'Moi : je dois comprendre et réutiliser le code.', ton: ['direct', 'technique'], format: 'code', longueur: 'auto',
-      contraintes: ['Donne du code complet et fonctionnel, sans morceaux remplacés par « … »', 'Explique en une phrase chaque choix important', 'S’il manque une information (langage, version, environnement), pose la question ou annonce ton hypothèse'],
-      proof: { unknown: true }, blocks: { reflexion: true, verif: true }, verb: 'Écris', livrable: 'Le code fonctionne tel quel et je sais comment l’utiliser.' },
+      contraintes: ['Donne du code complet et fonctionnel, en entier (chaque partie écrite)', 'Explique en une phrase chaque choix important', 'S’il manque une information (langage, version, environnement), pose la question ou annonce ton hypothèse'],
+      proof: { unknown: true }, blocks: { reflexion: true, verif: true }, etapes: ['Reformule le problème et annonce tes hypothèses', 'Propose la solution la plus simple qui fonctionne', 'Donne le code complet et commenté', 'Explique comment le tester'], verb: 'Écris', livrable: 'Le code fonctionne tel quel et je sais comment l’utiliser.' },
     { id: 'sport', label: 'Sport / nutrition', kw: [['sport|seances?|musculation|muscu|entrainement|s\'entrainer|course a pied|courir|running|marathon|semi-marathon|fitness|crossfit|cardio|nutrition|regime|repas|calories|proteines|maigrir|perdre du poids|prise de masse|seche|yoga|pilates|velo|natation|abdos|pompes|squat|etirements|mobilite|coach sportif', 2]],
       role: 'un coach sportif diplômé, avec de solides bases en nutrition', audience: 'Moi, avec mon niveau actuel.', ton: ['simple', 'chaleureux'], format: 'tableau', longueur: 'auto',
-      contraintes: ['Adapte le volume et l’intensité à mon niveau', 'Propose une alternative pour chaque exercice si je n’ai pas le matériel', 'Pas de conseil médical : dis-moi quand consulter un professionnel de santé'],
-      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, verb: 'Crée', livrable: 'Je peux suivre le plan dès demain, sans matériel ou connaissance que je n’ai pas.',
+      contraintes: ['Adapte le volume et l’intensité à mon niveau', 'Propose une alternative pour chaque exercice si je n’ai pas le matériel', 'Reste sur l’entraînement et l’alimentation ; pour tout souci de santé, dis-moi de consulter un professionnel'],
+      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, etapes: ['Pars de mon niveau et de mes contraintes', 'Construis le plan séance par séance', 'Explique comment progresser d’une semaine à l’autre', 'Indique les signaux qui doivent me faire ralentir'], verb: 'Crée', livrable: 'Je peux suivre le plan dès demain, sans matériel ou connaissance que je n’ai pas.',
       formatDetail: { tableau: 'Un tableau par séance : exercice, séries, répétitions, repos.' } },
     { id: 'marketing', label: 'Marketing / réseaux', kw: [['marketing|reseaux sociaux|instagram|insta|tiktok|facebook|youtube|post|posts|publication|publicite|pub|slogan|campagne|newsletter|seo|referencement|accroche|landing page|page de vente|marque|branding|abonnes|followers|community|influence\\w*|hashtags?|caption|legende', 2], ['vendre|clients?|produit|promo\\w*|lancement', 1]],
       role: 'un expert en marketing et en rédaction persuasive', audience: 'Mes clients potentiels.', ton: ['enthousiaste'], format: 'liste', longueur: 'courte',
-      contraintes: ['Une accroche forte dans la première ligne', 'Un seul appel à l’action clair', 'Aucun chiffre, avis client ou résultat inventé'],
-      proof: { stats: true, examples: true, unknown: true }, blocks: { reflexion: true, verif: true }, verb: 'Rédige', livrable: 'Le texte donne envie d’agir et peut être publié tel quel.' },
+      contraintes: ['Une accroche forte dans la première ligne', 'Un seul appel à l’action clair', 'Utilise uniquement des chiffres, avis clients et résultats réels que je fournis'],
+      proof: { stats: true, examples: true, unknown: true }, blocks: { reflexion: true, verif: true }, etapes: ['Identifie le public et son besoin principal', 'Propose plusieurs angles différents', 'Rédige la meilleure version', 'Termine par l’appel à l’action'], exemplesNote: 'Angles possibles (conseil pratique, coulisses, question au public, avant / après, erreur fréquente). Des angles variés valent mieux qu’un seul répété.', rappel: 'Utilise uniquement des chiffres, avis clients et résultats réels que je fournis', verb: 'Rédige', livrable: 'Le texte donne envie d’agir et peut être publié tel quel.' },
     { id: 'redaction', label: 'Rédaction / e-mail', kw: [['mail|e-mail|email|courriel|lettre|courrier|message|sms|discours|invitation|faire-part|relance|relancer|repondre a|reponse a|remerciement|excuses|reclamation|article|texte|rediger|redige|ecrire|ecris|reformuler|reecrire|corriger|orthographe', 2]],
       role: 'un rédacteur professionnel, clair et efficace', audience: 'Le destinataire ou les lecteurs du texte.', ton: ['professionnel'], format: 'paragraphes', longueur: 'courte',
       contraintes: ['Phrases courtes, un message principal', 'Adapte le niveau de langue au destinataire', 'Mets entre crochets les informations que je dois compléter (noms, dates, montants)'],
-      proof: { examples: true, unknown: true }, blocks: { verif: true }, verb: 'Rédige', livrable: 'Le texte est prêt à envoyer après avoir complété les crochets.' },
+      proof: { examples: true, unknown: true }, blocks: { verif: true }, etapes: ['Identifie le destinataire et le message principal', 'Rédige un premier jet clair', 'Relis pour raccourcir et ajuster le ton', 'Mets entre crochets ce que je dois compléter'], verb: 'Rédige', livrable: 'Le texte est prêt à envoyer après avoir complété les crochets.' },
     { id: 'analyse', label: 'Analyse / données', kw: [['analyse\\w*|analyser|donnees|data|statistiques?|stats|chiffres|tableur|excel|csv|graphiques?|kpi|indicateurs? cles|tendances?|rapport|dashboard|tableau de bord|sondage|enquete|correlation|moyenne', 2]],
       role: 'un analyste de données rigoureux', audience: 'Moi, pour prendre une décision à partir des résultats.', ton: ['neutre', 'direct'], format: 'paragraphes', longueur: 'moyenne',
       contraintes: ['Appuie chaque conclusion sur les données fournies', 'Signale les données manquantes ou douteuses', 'Termine par 3 actions concrètes'],
-      proof: { stats: true, examples: true, obs: true, spec: true, sources: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, verb: 'Analyse', livrable: 'Je sais ce que disent les données et quoi faire ensuite.', needsText: true },
+      proof: { stats: true, examples: true, obs: true, spec: true, sources: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, etapes: ['Vérifie la qualité des données (manques, doublons, valeurs bizarres)', 'Décris les tendances principales', 'Explique ce qu’elles signifient', 'Propose 3 actions concrètes'], rappel: 'Appuie chaque conclusion sur les données fournies', verb: 'Analyse', livrable: 'Je sais ce que disent les données et quoi faire ensuite.', needsText: true },
     { id: 'apprendre', label: 'Apprendre / expliquer', kw: [['expliqu\\w*|comprendre|apprendre|cours|lecon|reviser|revision|examen|quiz|exercices?|enseigner|c\'est quoi|qu\'est-ce que|qu\'est ce que|comment (ca )?fonctionne|comment marche|pourquoi|definition', 2]],
       role: 'un professeur patient et pédagogue', audience: 'Moi, qui veux comprendre le sujet.', niveau: 'debutant', ton: ['pédagogique', 'simple'], format: 'paragraphes', longueur: 'moyenne',
       contraintes: ['Pars de ce que je connais déjà, sans jargon (ou explique chaque terme)', 'Donne un exemple concret de la vie courante', 'Termine par 3 questions pour vérifier que j’ai compris'],
-      proof: { stats: true, examples: true, obs: true, spec: true, sources: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, verb: 'Explique', livrable: 'Je peux réexpliquer le sujet avec mes mots.' },
+      proof: { stats: true, examples: true, obs: true, spec: true, sources: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, etapes: ['Explique l’idée principale simplement', 'Donne une analogie et un exemple concret', 'Détaille les points importants', 'Termine par 3 questions de vérification'], exemplesNote: 'Analogies du quotidien bienvenues (cuisine, sport, argent de poche, transports). Plusieurs exemples variés aident plus qu’un seul très précis.', verb: 'Explique', livrable: 'Je peux réexpliquer le sujet avec mes mots.' },
     { id: 'projet', label: 'Projet / app / site', kw: [['projet|app|appli|application|site|site web|site internet|startup|start-up|mvp|plateforme|logiciel|saas|roadmap|feuille de route|cahier des charges|maquette|prototype|lancer|lancement|business plan|entreprise|boutique en ligne|e-commerce', 2]],
       role: 'un chef de projet produit expérimenté', audience: 'Moi et les personnes qui travailleront sur le projet.', ton: ['direct', 'simple'], format: 'etapes', longueur: 'auto',
       contraintes: ['Commence par le plus petit résultat utile (version 1)', 'Pour chaque étape : objectif, actions, résultat attendu', 'Signale ce qui coûte du temps ou de l’argent'],
-      proof: { stats: true, examples: true, spec: true, unknown: true }, blocks: { reflexion: true, etapes: true, risques: true, verif: true }, verb: 'Prépare', livrable: 'Je sais exactement quoi faire en premier.' },
+      proof: { stats: true, examples: true, spec: true, unknown: true }, blocks: { reflexion: true, etapes: true, risques: true, verif: true }, etapes: ['Reformule le projet et son objectif', 'Définis la version 1 la plus simple', 'Découpe en étapes avec un résultat attendu pour chacune', 'Signale les risques, les coûts et le temps nécessaire'], verb: 'Prépare', livrable: 'Je sais exactement quoi faire en premier.' },
     { id: 'idees', label: 'Idées / brainstorm', kw: [['idees?|brainstorm\\w*|trouver un nom|noms? pour|noms? de', 3], ['inspiration|suggestions?|propositions?|creatif|creative|imaginer|invente\\w*|originale?s?', 2]],
       role: 'un directeur de création inventif', audience: 'Moi, pour choisir les meilleures idées.', ton: ['enthousiaste'], format: 'liste', longueur: 'moyenne',
       contraintes: ['Propose 10 idées variées, des plus sûres aux plus audacieuses', 'Une ligne d’explication par idée', 'Termine par tes 3 favorites et pourquoi'],
-      proof: { examples: true, unknown: true }, blocks: { verif: true }, verb: 'Trouve', livrable: 'J’ai au moins 2 idées que j’ai envie de tester.' },
+      proof: { examples: true, unknown: true }, blocks: { verif: true }, etapes: ['Explore plusieurs directions différentes', 'Propose 10 idées, des plus sûres aux plus audacieuses', 'Explique chaque idée en une ligne', 'Choisis tes 3 favorites et dis pourquoi'], exemplesNote: 'Directions possibles (classique, humour, jeu de mots, émotion, chiffre ou lieu). Varie les styles.', verb: 'Trouve', livrable: 'J’ai au moins 2 idées que j’ai envie de tester.' },
     { id: 'conseil', label: 'Conseil / décision', kw: [['choisir|choix|decider|decision|hesite|j\'hesite|conseil\\w*|dois-je|est-ce que je dois|faut-il|vaut-il mieux|vaut mieux|ou bien|vs|versus|avantages|inconvenients|pour ou contre|comparer|comparatif|acheter|changer de', 2]],
       role: 'un conseiller neutre et méthodique', audience: 'Moi, pour décider.', ton: ['neutre', 'direct'], format: 'tableau', longueur: 'moyenne',
       contraintes: ['Pose d’abord mes critères s’ils manquent', 'Compare les options sur les mêmes critères', 'Termine par une recommandation claire et ce qui la ferait changer'],
-      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, risques: true, verif: true }, verb: 'Aide-moi à', livrable: 'Je sais quoi choisir et pourquoi.',
+      proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, risques: true, verif: true }, etapes: ['Liste mes critères (ou demande-les s’ils manquent)', 'Compare les options sur ces critères', 'Donne ta recommandation', 'Dis ce qui ferait changer ta recommandation'], verb: 'Aide-moi à', livrable: 'Je sais quoi choisir et pourquoi.',
       formatDetail: { tableau: 'Un tableau comparatif des options, puis ta recommandation argumentée.' } },
     { id: 'general', label: 'Général', kw: [],
       role: 'un expert polyvalent, précis et pédagogue', audience: 'Moi.', ton: ['simple'], format: 'libre', longueur: 'auto',
       contraintes: ['Va à l’essentiel, puis développe si c’est utile'],
-      proof: { stats: true, examples: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, verb: 'Aide-moi', livrable: '' }
+      proof: { stats: true, examples: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, etapes: ['Reformule la demande en une phrase', 'Réponds à l’essentiel', 'Développe si c’est utile', 'Termine par la prochaine action possible'], verb: 'Aide-moi', livrable: '' }
   ];
   const DOM = Object.fromEntries(DOMAINS.map((d) => [d.id, d]));
 
@@ -147,7 +147,7 @@
     if (am && has(norm(am[1]), PEOPLE)) h.audience = cap(am[1].trim().replace(/\s+(?:qui|afin|pour|avec|en)\s.*$/i, ''));
     // « sans … »
     const sx = raw.match(/\bsans\s+([^,.;!?]{2,40}?)(?=$|[,.;!?]|\s+(?:et|pour|avec|qui|mais)\s)/i);
-    if (sx) h.constraints.push('Sans ' + sx[1].trim());
+    if (sx) { h.constraints.push('Sans ' + sx[1].trim()); h.key = 'Sans ' + sx[1].trim(); }
     // numbers / durations kept in the objective; money / facts / multi-step
     h.money = has(n, 'argent|budget|euros?|chf|francs?|dollars?|prix|couts?|investir|investissement|placement|epargne|credit|pret|impots?|salaire|depenses?|rentabilite|\\d+ ?(?:€|\\$|k€|chf)') || /\d\s?(?:€|\$)/.test(raw);
     h.facts = has(n, 'chiffres?|statistiques?|donnees|histoire|historique|loi|lois|juridique|droit|legal|sante|medical|medicament|maladie|science|scientifique|vrai ou faux|sources?|etudes?|actualite|fiable');
@@ -173,13 +173,14 @@
       lang: h.lang && d.id !== 'traduction' ? h.lang : 'français', target: d.id === 'traduction' ? (h.lang || '[langue d’arrivée]') : '', fromLang: h.fromLang || '',
       contraintes: d.contraintes.slice(), exclure: [], proof: Object.assign({}, BASE_PROOF, { stats: false, examples: false, unknown: false }, d.proof),
       blocks: Object.assign({ profil: false, mode: false, reflexion: false, etapes: false, tags: false, risques: false, verif: true }, d.blocks),
+      etapes: (d.etapes || []).slice(), exemplesNote: d.exemplesNote || '', rappel: d.rappel || '',
       objectif: reform(sentence, d), livrable: d.livrable, why: h.why, tutoie: !!h.tutoie, vouvoie: !!h.vouvoie, needsText: !!d.needsText, needsProfile: !!d.needsProfile
     };
     if (g.format === 'code' && d.id !== 'code' && d.id !== 'trading') g.format = 'libre';
     if (d.id === 'trading' && has(n, 'pine ?script|pine|tradingview|indicateur|backtest\\w*')) { g.format = 'code'; g.contraintes.unshift('Code Pine Script v6 complet, commenté, qui compile dans TradingView'); }
     if (d.id === 'redaction' && has(n, 'mail|e-mail|email|courriel|relance|relancer') && !h.format) g.format = 'mail';
     if (d.id === 'emploi' && has(n, 'cv|curriculum') && !h.format) g.format = 'liste';
-    if (d.id === 'emploi' && has(n, 'entretien') && !h.format) { g.format = 'liste'; g.contraintes = ['Prépare les questions probables, avec pour chacune une réponse structurée (situation, action, résultat) à partir de mon parcours', 'N’invente aucune expérience : mets [À COMPLÉTER] là où il faut un exemple personnel']; }
+    if (d.id === 'emploi' && has(n, 'entretien') && !h.format) { g.format = 'liste'; g.contraintes = ['Prépare les questions probables, avec pour chacune une réponse structurée (situation, action, résultat) à partir de mon parcours', 'Utilise uniquement mes expériences réelles : mets [À COMPLÉTER] là où il faut un exemple personnel']; }
     if (d.id === 'apprendre' && has(n, 'quiz|exercices?|reviser|revision|examen') && !h.format) g.format = 'liste';
     if (d.formatDetail && d.formatDetail[g.format]) g.formatDetail = d.formatDetail[g.format];
     if (d.id === 'traduction') { g.objectif = reform(sentence, d); g.contraintes.unshift(`Langue d’arrivée : ${g.target}${g.fromLang ? ` (depuis le ${LANGS[g.fromLang] || g.fromLang})` : ''}`); }
@@ -187,12 +188,14 @@
     if (h.explain && d.id !== 'apprendre') { if (!g.ton.includes('pédagogique')) g.ton = [g.ton[0], 'pédagogique'].filter(Boolean).slice(0, 2); g.blocks.tags = true; }
     if (h.money) { g.blocks.risques = true; g.blocks.tags = true; g.proof.stats = true; }
     if (h.facts) { g.blocks.tags = true; g.proof.sources = true; g.proof.obs = true; }
-    if (h.health) { g.blocks.tags = true; if (!g.contraintes.some((c) => /médical/.test(c))) g.contraintes.push('Pas de diagnostic ni de traitement : dis-moi quand consulter un professionnel de santé'); g.blocks.risques = true; }
+    if (h.health) { g.blocks.tags = true; if (!g.contraintes.some((c) => /médical/.test(c))) g.contraintes.push('Donne des informations générales et dis-moi quand consulter un professionnel de santé (diagnostic et traitement relèvent d’un médecin)'); g.blocks.risques = true; }
     if (h.legal) { g.blocks.tags = true; g.contraintes.push('Précise que ce n’est pas un avis juridique et quand consulter un professionnel'); }
     if (h.multi) g.blocks.etapes = true;
     if (h.format === 'etapes') g.blocks.etapes = g.blocks.etapes || h.multi;
     h.constraints.forEach((c) => g.contraintes.push(c));
-    if (g.niveau === 'debutant' && !g.contraintes.some((c) => /jargon/.test(c))) g.contraintes.push('Pas de jargon, ou explique chaque terme technique');
+    if (h.key && !d.rappel) g.rappel = h.key; // « sans matériel » : contrainte explicite de la phrase = contrainte clé
+    if (h.longueurDetail && !g.rappel) g.rappel = 'Longueur : ' + h.longueurDetail.charAt(0).toLowerCase() + h.longueurDetail.slice(1);
+    if (g.niveau === 'debutant' && !g.contraintes.some((c) => /jargon/.test(c))) g.contraintes.push('Utilise des mots simples de tous les jours, et explique chaque terme technique');
     if (h.tutoie) g.tonExtra = 'Tutoie-moi';
     if (h.vouvoie) g.tonExtra = 'Vouvoiement';
     const prof = (PS.state && PS.state.settings && PS.state.settings.profil || '').trim();
@@ -215,6 +218,7 @@
     w.audience = g.audience; w.niveau = g.niveau;
     w.format = g.format; w.formatDetail = g.formatDetail; w.ton = g.ton.slice(); w.tonExtra = g.tonExtra || '';
     w.longueur = g.longueur; w.longueurDetail = g.longueurDetail;
+    w.etapes = (g.etapes || []).join('\n'); w.exemplesNote = g.exemplesNote || ''; w.rappel = g.rappel || '';
     const cons = g.contraintes.slice();
     if (ctx && ctx.text) cons.unshift('Appuie-toi sur le contexte du projet ci-dessus ; si une information manque, demande-la au lieu de la supposer');
     w.contraintes = cons.join('\n');
@@ -346,11 +350,9 @@
   }
 
   // ---------- Version IA (facultative, avec la clé de l'utilisateur) ----------
-  const aiMeta = (g, local) => `Tu es un expert en rédaction de prompts pour Claude.
-
-Transforme la demande ci-dessous (écrite en une seule phrase) en un prompt complet, prêt à coller dans Claude.
-- Langue du prompt : français${g.lang !== 'français' ? ` (la réponse de Claude devra être en ${g.lang})` : ''}.
-- Structure, avec des titres en majuscules : RÔLE, OBJECTIF, AUDIENCE, CONTRAINTES, FORMAT DE LA RÉPONSE, puis seulement les blocs utiles parmi : RÉFLEXION PRÉALABLE, ÉTAPES UNE À UNE, RÈGLES DE PREUVE, NIVEAUX DE CONFIANCE ([SÛR] / [PROBABLE] / [À VÉRIFIER]), TABLEAU DES RISQUES, VÉRIFICATION FINALE.
+  const aiMeta = (g, local, target) => `Transforme la demande ci-dessous (écrite en une seule phrase) en un prompt complet, prêt à coller dans ${PS.TARGETS[target || 'claude'] || 'Claude'}.
+- Langue du prompt : français${g.lang !== 'français' ? ` (la réponse devra être en ${g.lang})` : ''}.
+- Suis la méthode ASPECCT et la méthode en 4 étapes décrites dans tes consignes ; garde seulement les blocs de fiabilité utiles.
 - Déduis le meilleur rôle expert, le public, le ton, le format et la longueur. Les réglages devinés ci-dessous sont un point de départ : améliore-les si besoin.
 - N’invente aucun fait sur l’utilisateur : écris [à compléter] pour ce qu’il doit fournir.
 - Réponds uniquement avec le prompt, entre <prompt> et </prompt>.
@@ -403,7 +405,10 @@ ${g.sentence}
   const EXAMPLES = ['Un mail pour relancer un client qui n’a pas payé sa facture', 'Explique-moi les intérêts composés simplement', 'Un programme de musculation de 4 semaines pour débutant, sans matériel'];
   V.rapide = (root) => {
     const st = PS.state;
-    const D = st.drafts.phrase = Object.assign({ text: '', ov: {}, shown: false, ver: 'local' }, st.drafts.phrase || {});
+    const D = st.drafts.phrase = Object.assign({ text: '', ov: {}, ans: {}, mode: null, shown: false, ver: 'local' }, st.drafts.phrase || {});
+    if (!D.ans) D.ans = {};
+    const M = PS.method;
+    const tgt = () => PS.currentTarget();
     let ia = null; // { for: texte local, text } — non conservé
     root.innerHTML = `
       <section class="qp">
@@ -429,26 +434,32 @@ ${g.sentence}
     function submit() {
       const t = ta.value.trim();
       if (!t) { ta.focus(); return PS.toast('Écris d’abord ta demande en une phrase.', 'info'); }
-      D.text = t; D.ov = {}; D.shown = true; D.ver = 'local'; ia = null; PS.save();
+      D.text = t; D.ov = {}; D.ans = {}; D.mode = null; D.shown = true; D.ver = 'local'; ia = null; PS.save();
       render(true);
     }
-    const local = () => build(infer(D.text, D.ov));
+    const run = () => M.phrasePipeline(D.text, { ov: D.ov, mode: D.mode || undefined, answers: D.ans, target: tgt() });
+    const local = () => run().prompt;
     const current = () => (D.ver === 'ia' && ia && ia.for === local() ? ia.text : local());
     function render(scroll) {
       root.classList.toggle('qp-done', !!(D.shown && D.text.trim()));
       if (!D.shown || !D.text.trim()) { out.innerHTML = ''; return; }
-      const g = infer(D.text, D.ov), txt = current();
-      const hasKey = !!PS.getKey();
+      const R = run(), g = R.g, txt = D.ver === 'ia' && ia && ia.for === R.prompt ? ia.text : R.prompt;
+      const hasKey = !!PS.getKey(), T = tgt();
       out.innerHTML = `<section class="card qp-res" aria-labelledby="qpResT">
         <div class="row qp-res-head"><h2 id="qpResT">Ton prompt est prêt</h2><span class="spacer"></span><span class="counter">${PS.words(txt)} mots</span></div>
+        ${M.progressHtml(4)}
+        <div class="o4-opts">${M.modeHtml(R.mode, R.auto, 'qpMode')}<div class="tgrow"><span class="tiny muted" id="qpTgL">Pour :</span>${M.targetHtml(T, 'qpTarget')}</div></div>
+        ${M.questionsHtml(R.qs, R.answers)}
         ${hasKey ? `<div class="seg" role="group" aria-label="Version du prompt" style="margin-bottom:12px"><button type="button" data-ver="local" aria-pressed="${D.ver !== 'ia'}">Version locale</button><button type="button" data-ver="ia" aria-pressed="${D.ver === 'ia'}">${icon('sparkle', 'sm')} Version IA</button></div>` : ''}
         <div class="qp-actions">
           <button class="btn primary lg" type="button" id="qpCopy">${icon('copy')}Copier</button>
-          <button class="btn lg" type="button" id="qpClaude">${icon('external')}Ouvrir dans Claude</button>
+          ${T === 'claude' ? `<button class="btn lg" type="button" id="qpClaude">${icon('external')}Ouvrir dans Claude</button>` : ''}
           <button class="btn lg" type="button" id="qpSave">${icon('save')}Enregistrer dans un projet</button>
         </div>
         <div id="qpIA"></div>
         <pre class="prompt-box qp-prompt" id="qpPrompt" tabindex="0" aria-label="Prompt généré">${PS.highlight(txt)}</pre>
+        ${M.notesHtml(R.notes, D.notesOpen)}
+        <p class="tiny muted privacy">${icon('shield', 'sm')} ${esc(M.PRIVACY)}</p>
         <details class="more qp-guess" id="qpGuess" ${D.open ? 'open' : ''}><summary>${icon('wand', 'sm')} Ce que j’ai deviné <span class="qp-sum">${esc(guessSummary(g))}</span></summary>
           <div class="qp-guess-body">${guessHtml(g)}
           <p class="tiny muted" style="margin:10px 0 0">Déduit automatiquement à partir des mots de ta phrase (règles fixes, pas d’IA). Change une puce : le prompt se met à jour tout de suite.</p>
@@ -456,8 +467,9 @@ ${g.sentence}
         </details>
       </section>`;
       $('#qpGuess', out).addEventListener('toggle', (e) => { D.open = e.target.open; });
-      $('#qpCopy', out).onclick = () => PS.copyPrompt(current());
-      $('#qpClaude', out).onclick = () => PS.openClaude(current());
+      $('#qpCopy', out).onclick = () => PS.copyPrompt(current(), T === 'claude' ? 'Prompt copié' : `Prompt copié : colle-le dans ${PS.TARGETS[T]}`);
+      const oc = $('#qpClaude', out); if (oc) oc.onclick = () => PS.openClaude(current());
+      $('.n4', out).addEventListener('toggle', (e) => { D.notesOpen = e.target.open; });
       $('#qpSave', out).onclick = () => PS.saveToProject(current(), { title: titleOf(D.text), note: 'Créé en une phrase', gen: { phrase: D.text } });
       $('#qpWiz', out).onclick = () => toWizardView(g);
       $('#qpEd', out).onclick = () => PS.openInEditor(current());
@@ -467,7 +479,18 @@ ${g.sentence}
       PS.saveSoon();
     }
     out.addEventListener('change', (e) => { if (e.target.dataset.ov) { applyChip(D.ov, e.target); D.ver = 'local'; render(); const s = $(`[data-ov="${e.target.dataset.ov}"]`, out); if (s) s.focus(); } });
-    out.addEventListener('click', (e) => { const b = e.target.closest('[data-blk]'); if (b) { applyChip(D.ov, b, infer(D.text, D.ov)); D.ver = 'local'; render(); const n = $(`[data-blk="${b.dataset.blk}"]`, out); if (n) n.focus(); } });
+    out.addEventListener('click', (e) => {
+      const m4 = e.target.closest('[data-mode4]'), tg = e.target.closest('[data-target]'), q = e.target.closest('[data-q]');
+      if (m4 || tg || q) {
+        if (m4) D.mode = m4.dataset.mode4;
+        if (tg) { PS.state.settings.target = tg.dataset.target; }
+        if (q) D.ans = Object.assign({}, D.ans, { [q.dataset.q]: q.dataset.qv });
+        D.ver = 'local'; render(); PS.save();
+        const sel = m4 ? `[data-mode4="${m4.dataset.mode4}"]` : tg ? `[data-target="${tg.dataset.target}"]` : `[data-q="${q.dataset.q}"][data-qv="${CSS.escape(q.dataset.qv)}"]`;
+        const nb = $(sel, out); if (nb) nb.focus();
+        return;
+      }
+      const b = e.target.closest('[data-blk]'); if (b) { applyChip(D.ov, b, run().g); D.ver = 'local'; render(); const n = $(`[data-blk="${b.dataset.blk}"]`, out); if (n) n.focus(); } });
     async function runIA(g) {
       const loc = local();
       if (ia && ia.for === loc) { D.ver = 'ia'; render(); return; }
@@ -475,7 +498,7 @@ ${g.sentence}
       box.innerHTML = `<div class="notice" style="margin:12px 0 0">${icon('sparkle')}<p><b>Claude prépare une version améliorée…</b> Ta phrase est envoyée à l’API Anthropic avec ta clé. <button class="btn sm ghost" type="button" id="qpIAStop">Annuler</button></p></div>`;
       $('#qpIAStop', box).onclick = () => ctrl.abort();
       try {
-        const res = await PS.callClaude(aiMeta(g, loc), { signal: ctrl.signal });
+        const res = await PS.callClaude(aiMeta(g, loc, tgt()), { signal: ctrl.signal, system: M.systemFor(tgt()) });
         const m = res.match(/<prompt>\s*([\s\S]*?)\s*<\/prompt>/i);
         ia = { for: loc, text: (m ? m[1] : res).trim() }; D.ver = 'ia'; render();
         $('#qpIA', out).innerHTML = `<p class="tiny muted" style="margin:10px 0 0">Version proposée par Claude (${esc(PS.state.settings.model)}). Relis-la : elle peut changer une intention. La version locale reste disponible.</p>`;

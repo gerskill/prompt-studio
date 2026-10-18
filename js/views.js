@@ -26,7 +26,7 @@
       </div></div>
       <div class="hero-visual" aria-hidden="true"><span class="tag accent hv-tag">Illustration</span>
         <div class="hv-head"><span class="dots"><i></i><i></i><i></i></span><span>Structure d’un prompt</span></div>
-        ${[['RÔLE', 'Tu es un coach sportif diplômé.'], ['OBJECTIF', 'Crée un programme de 4 semaines.'], ['AUDIENCE', 'Débutant : explique sans jargon.'], ['FORMAT', 'Un tableau par séance.'], ['VÉRIFICATION FINALE', 'Relis ta réponse avant de l’envoyer.']].map(([a, b]) => `<div class="hv-line"><span class="ok">${icon('check')}</span><span><b>${a}</b>${b}</span></div>`).join('')}
+        ${[['ACTION', 'Crée un programme de 4 semaines.'], ['ÉTAPES', '1. Évalue mon niveau 2. Construis les séances'], ['PERSONA', 'Tu es un coach sportif diplômé.'], ['MODÈLE', 'Un tableau par séance.'], ['RAPPEL', 'Moins d’1 h par séance. C’est important !']].map(([a, b]) => `<div class="hv-line"><span class="ok">${icon('check')}</span><span><b>${a}</b>${b}</span></div>`).join('')}
       </div></div>
     </section>
 
@@ -65,11 +65,19 @@
     ${recent.length ? `<section class="section"><div class="row" style="margin-bottom:14px"><h2 style="margin:0">Reprendre</h2><span class="spacer"></span><a class="btn ghost sm" href="#/projets">Tous les projets ${icon('right', 'sm')}</a></div>
       <div class="proj-grid">${recent.map(projCard).join('')}</div></section>` : ''}
 
+    <section class="section" id="aspecct" aria-labelledby="aspT">
+      <div class="section-head"><h2 id="aspT">La méthode ASPECCT</h2><p>Sept éléments pour un prompt clair. Le site les remplit pour toi ; voici ce que chacun apporte.</p></div>
+      <div class="asp">
+        ${[['A', 'Action', 'La tâche en une phrase, avec un verbe : « Rédige un post de moins de 280 caractères ».'], ['É', 'Étapes', 'L’ordre à suivre, numéroté. L’IA avance pas à pas au lieu de deviner.'], ['P', 'Persona', 'Le rôle de l’IA : « Tu es un coach sportif ». Il donne la voix et le point de vue.'], ['E', 'Exemples', 'Ce que tu attends, montré. Plusieurs exemples variés valent mieux qu’un seul très précis.'], ['C', 'Contexte', 'La situation : pour qui, pourquoi, ce qui existe déjà.'], ['C', 'Contraintes', 'Les règles, dites en positif : « Utilise uniquement… » plutôt que « N’utilise pas… ». La plus importante est répétée à la fin.'], ['M', 'Modèle', 'La forme de la réponse : tableau, liste, bloc de code, titres…']].map(([l, t, d]) => `<div class="card asp-i"><span class="asp-l" aria-hidden="true">${l}</span><div><h3>${t}</h3><p>${esc(d)}</p></div></div>`).join('')}
+      </div>
+      <p class="small muted asp-4">${icon('wand', 'sm')}<span>Pour améliorer un prompt existant, l’éditeur suit 4 étapes : <b>décomposer</b> ta demande, <b>diagnostiquer</b> ce qui manque, <b>développer</b> avec les bonnes techniques, puis <b>livrer</b> le prompt avec la liste des changements.</span></p>
+    </section>
+
     <section class="section">
       <div class="section-head"><h2>Comment ça marche</h2><p>Trois étapes, du premier jet au prompt que tu réutilises.</p></div>
       <div class="steps">
         <div class="card step"><h3>Décris ce que tu veux</h3><p class="muted">En une phrase, avec l’assistant détaillé, un modèle ou ton propre texte. Les zones à compléter sont mises en évidence.</p></div>
-        <div class="card step"><h3>Vérifie et complète</h3><p class="muted">La vérification repère les éléments absents (rôle, format, exemple…) et les mots trop vagues.</p></div>
+        <div class="card step"><h3>Vérifie et complète</h3><p class="muted">La vérification repère les éléments ASPECCT absents, les règles dites en négatif et les mots trop vagues.</p></div>
         <div class="card step"><h3>Utilise et range</h3><p class="muted">Copie le prompt ou ouvre-le dans Claude. Enregistre-le dans un projet pour garder ses versions.</p></div>
       </div>
     </section>
@@ -77,7 +85,7 @@
     <section class="section">
       <div class="section-head"><h2>Les blocs qui rendent un prompt solide</h2><p>Chaque bloc s’active ou se désactive dans l’assistant et s’insère en un clic dans l’éditeur.</p></div>
       <div class="blocks-list">
-        ${[['Rôle expert', 'Claude sait quel spécialiste il doit être.']].concat(PS.BLOCK_ORDER.map((k) => [PS.BLOCKS[k].title, PS.BLOCKS[k].desc])).map(([t, d]) => `<div class="bl"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join('')}
+        ${[['Rappel final', 'La contrainte la plus importante est répétée tout à la fin du prompt.']].concat(PS.BLOCK_ORDER.map((k) => [PS.BLOCKS[k].title, PS.BLOCKS[k].desc])).map(([t, d]) => `<div class="bl"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join('')}
       </div>
     </section>
 
@@ -114,21 +122,28 @@
   const ROLE_SUGG = ['un rédacteur web expérimenté', 'un développeur senior', 'un coach sportif diplômé', 'un professeur patient', 'un expert marketing', 'un analyste de données', 'un recruteur', 'un chef de projet'];
   const TONS = ['Simple', 'Chaleureux', 'Professionnel', 'Direct', 'Pédagogique', 'Enthousiaste', 'Neutre', 'Technique'];
   const STEPS = [
-    { id: 'role', t: 'Rôle', q: 'Quel expert doit être Claude ?', intro: 'Donner un rôle aide Claude à choisir le bon vocabulaire et le bon niveau de détail.',
-      html: (w) => `<div class="field"><label class="lbl" for="w-role">Claude est…</label><input id="w-role" type="text" data-k="role" value="${esc(w.role)}" placeholder="un coach sportif diplômé"><div class="suggest" aria-label="Suggestions">${ROLE_SUGG.map((s) => `<button type="button" data-fill="role" data-val="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>
-        <div class="field"><label class="lbl" for="w-roleExtra">Expérience ou spécialité <span class="muted">(facultatif)</span></label><input id="w-roleExtra" type="text" data-k="roleExtra" value="${esc(w.roleExtra)}" placeholder="Spécialisé dans les débutants, 10 ans d’expérience"></div>` },
-    { id: 'objectif', t: 'Objectif', q: 'Que veux-tu obtenir ?', intro: 'Commence par un verbe : rédige, explique, crée, corrige, compare…',
-      html: (w) => `<div class="field"><label class="lbl" for="w-objectif">Ta demande</label><textarea id="w-objectif" data-k="objectif" rows="4" placeholder="Crée un programme de musculation de 4 semaines pour reprendre le sport.">${esc(w.objectif)}</textarea></div>
+    { id: 'objectif', t: 'Action', q: 'Quelle est la tâche ?', intro: 'Une phrase qui commence par un verbe : rédige, explique, crée… Tu peux y glisser la contrainte clé, par exemple « Rédige un post de moins de 280 caractères ».',
+      html: (w) => `<div class="field"><label class="lbl" for="w-objectif">La tâche, en une phrase</label><textarea id="w-objectif" data-k="objectif" rows="4" placeholder="Crée un programme de musculation de 4 semaines pour reprendre le sport.">${esc(w.objectif)}</textarea></div>
         <div class="field"><label class="lbl" for="w-livrable">C’est réussi quand… <span class="muted">(facultatif)</span></label><span class="hint">Un critère simple pour savoir si la réponse convient.</span><input id="w-livrable" type="text" data-k="livrable" value="${esc(w.livrable)}" placeholder="Chaque séance dure moins d’1 h 15, échauffement compris"></div>` },
+    { id: 'etapes', t: 'Étapes', q: 'Dans quel ordre l’IA doit-elle avancer ?', intro: 'Une étape par ligne : l’IA les suit dans l’ordre au lieu de deviner. Laisse vide si l’ordre n’a pas d’importance.',
+      html: (w) => `<div class="field"><label class="lbl" for="w-etapes">Étapes <span class="muted">(facultatif, numérotées automatiquement)</span></label><textarea id="w-etapes" data-k="etapes" rows="5" placeholder="Pose-moi 2 questions sur mon niveau&#10;Propose le plan sur 4 semaines&#10;Détaille la semaine 1">${esc(w.etapes)}</textarea></div>
+        <div class="suggest" aria-label="Suggestions">${[['Reformule la demande en une phrase', 'Reformule'], ['Pose-moi au maximum 3 questions si quelque chose manque', 'Questions d’abord'], ['Propose un plan avant de rédiger', 'Plan d’abord'], ['Termine par la prochaine action concrète', 'Prochaine action']].map(([v, l]) => `<button type="button" data-addline="etapes" data-val="${esc(v)}">${esc(l)}</button>`).join('')}</div>` },
+    { id: 'role', t: 'Persona', q: 'Quel expert doit être l’IA ?', intro: 'Le persona donne une voix et un point de vue : l’IA choisit le bon vocabulaire et le bon niveau de détail.',
+      html: (w) => `<div class="field"><label class="lbl" for="w-role">L’IA est…</label><input id="w-role" type="text" data-k="role" value="${esc(w.role)}" placeholder="un coach sportif diplômé"><div class="suggest" aria-label="Suggestions">${ROLE_SUGG.map((s) => `<button type="button" data-fill="role" data-val="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>
+        <div class="field"><label class="lbl" for="w-roleExtra">Expérience ou spécialité <span class="muted">(facultatif)</span></label><input id="w-roleExtra" type="text" data-k="roleExtra" value="${esc(w.roleExtra)}" placeholder="Spécialisé dans les débutants, 10 ans d’expérience"></div>` },
+    { id: 'exemples', t: 'Exemples', q: 'As-tu des exemples de ce que tu attends ?', intro: 'Plusieurs exemples variés valent mieux qu’un seul exemple trop précis : l’IA comprend la direction sans tout recopier. Tu peux aussi les lister entre parenthèses.',
+      html: (w) => `<div class="field"><label class="lbl" for="w-exemplesNote">Exemples en une ligne <span class="muted">(facultatif)</span></label><input id="w-exemplesNote" type="text" data-k="exemplesNote" value="${esc(w.exemplesNote)}" placeholder="Angles possibles (conseil, coulisses, question au public)"></div>
+        <div class="field"><label class="lbl" for="w-exemples">Exemples détaillés <span class="muted">(facultatif, un ou plusieurs)</span></label><textarea id="w-exemples" data-k="exemples" rows="6" class="code" placeholder="Séance A — Pompes : 3 × 10, repos 90 s&#10;Séance B — Gainage : 3 × 40 s">${esc(w.exemples)}</textarea></div>` },
+    { id: 'contexte', t: 'Contexte', q: 'Qu’est-ce que Claude doit savoir ?', intro: 'La situation, ce qui existe déjà, ce que tu as déjà essayé. C’est souvent ce qui fait la plus grande différence.',
+      html: (w) => `<div class="field"><label class="lbl" for="w-contexte">Contexte</label><textarea id="w-contexte" data-k="contexte" rows="6" placeholder="Je m’entraîne en salle 3 fois par semaine. J’ai une petite douleur à l’épaule droite.">${esc(w.contexte)}</textarea></div>` },
     { id: 'audience', t: 'Audience', q: 'Pour qui est la réponse ?', intro: 'Toi-même, tes clients, une équipe, des élèves… Le niveau change tout.',
       html: (w) => `<div class="field"><label class="lbl" for="w-audience">Public</label><input id="w-audience" type="text" data-k="audience" value="${esc(w.audience)}" placeholder="Moi, 28 ans, je reprends le sport après 2 ans d’arrêt"></div>
         <div class="field"><span class="lbl" id="lv">Niveau</span><div class="chips" role="group" aria-labelledby="lv">${[['debutant', 'Débutant'], ['intermediaire', 'Intermédiaire'], ['expert', 'Expert']].map(([v, l]) => `<button type="button" class="chip" data-single="niveau" data-val="${v}" aria-pressed="${w.niveau === v}">${l}</button>`).join('')}</div></div>` },
-    { id: 'contexte', t: 'Contexte', q: 'Qu’est-ce que Claude doit savoir ?', intro: 'La situation, ce qui existe déjà, ce que tu as déjà essayé. C’est souvent ce qui fait la plus grande différence.',
-      html: (w) => `<div class="field"><label class="lbl" for="w-contexte">Contexte</label><textarea id="w-contexte" data-k="contexte" rows="6" placeholder="Je m’entraîne en salle 3 fois par semaine. J’ai une petite douleur à l’épaule droite.">${esc(w.contexte)}</textarea></div>` },
-    { id: 'contraintes', t: 'Contraintes', q: 'Quelles sont les règles à respecter ?', intro: 'Une règle par ligne. Ce qui est obligatoire, puis ce que tu ne veux pas.',
+    { id: 'contraintes', t: 'Contraintes', q: 'Quelles sont les règles à respecter ?', intro: 'Une règle par ligne, dite en positif : « Utilise uniquement… » marche mieux que « N’utilise pas… ». Pour une règle critique, ajoute « C’est important ! ».',
       html: (w) => `<div class="field"><label class="lbl" for="w-contraintes">Obligatoire</label><textarea id="w-contraintes" data-k="contraintes" rows="4" placeholder="Matériel : haltères et banc uniquement&#10;3 séances par semaine">${esc(w.contraintes)}</textarea></div>
-        <div class="field"><label class="lbl" for="w-exclure">À ne pas inclure</label><textarea id="w-exclure" data-k="exclure" rows="3" placeholder="Pas de compléments alimentaires&#10;Pas de jargon">${esc(w.exclure)}</textarea></div>` },
-    { id: 'format', t: 'Format', q: 'Sous quelle forme veux-tu la réponse ?', intro: 'Choisis une forme, puis précise si besoin.',
+        <div class="field"><label class="lbl" for="w-exclure">À laisser de côté <span class="muted">(reformulé en positif dans le prompt)</span></label><textarea id="w-exclure" data-k="exclure" rows="3" placeholder="Compléments alimentaires&#10;Jargon technique">${esc(w.exclure)}</textarea></div>
+        <div class="field"><label class="lbl" for="w-rappel">Contrainte clé à rappeler à la fin <span class="muted">(facultatif)</span></label><span class="hint">Répétée tout à la fin du prompt : c’est ce que l’IA lit en dernier. Vide = la première règle.</span><input id="w-rappel" type="text" data-k="rappel" value="${esc(w.rappel)}" placeholder="Chaque séance dure moins d’1 h 15"></div>` },
+    { id: 'format', t: 'Modèle', q: 'Quel modèle de réponse ?', intro: 'La forme du résultat : Markdown, bloc de code, tableau, puces avec une justification, formule pour les titres…',
       html: (w) => `<div class="field"><div class="chips" role="group" aria-label="Format">${Object.entries(PS.FORMAT_LABELS).map(([v, l]) => `<button type="button" class="chip" data-single="format" data-val="${v}" aria-pressed="${w.format === v}">${l}</button>`).join('')}</div></div>
         <div class="field"><label class="lbl" for="w-formatDetail">Précisions <span class="muted">(facultatif)</span></label><input id="w-formatDetail" type="text" data-k="formatDetail" value="${esc(w.formatDetail)}" placeholder="Un tableau par séance : exercice, séries, répétitions, repos"></div>` },
     { id: 'ton', t: 'Ton', q: 'Quel ton doit avoir la réponse ?', intro: 'Tu peux en choisir plusieurs.',
@@ -137,8 +152,6 @@
     { id: 'longueur', t: 'Longueur', q: 'Quelle longueur ?', intro: 'Une indication évite les réponses trop courtes ou trop longues.',
       html: (w) => `<div class="field"><div class="chips" role="group" aria-label="Longueur">${Object.entries(PS.LENGTH_LABELS).map(([v, l]) => `<button type="button" class="chip" data-single="longueur" data-val="${v}" aria-pressed="${w.longueur === v}">${l}</button>`).join('')}</div></div>
         <div class="field"><label class="lbl" for="w-longueurDetail">${w.longueur === 'perso' ? 'Ta longueur' : 'Précision'} <span class="muted">(facultatif)</span></label><input id="w-longueurDetail" type="text" data-k="longueurDetail" value="${esc(w.longueurDetail)}" placeholder="200 mots maximum"></div>` },
-    { id: 'exemples', t: 'Exemple', q: 'As-tu un exemple de ce que tu attends ?', intro: 'Un court extrait du style ou du résultat voulu. Claude s’en inspire sans le recopier. Laisse vide si tu n’en as pas.',
-      html: (w) => `<div class="field"><label class="lbl" for="w-exemples">Exemple <span class="muted">(facultatif)</span></label><textarea id="w-exemples" data-k="exemples" rows="6" class="code" placeholder="Séance A — Pompes : 3 × 10, repos 90 s">${esc(w.exemples)}</textarea></div>` },
     { id: 'preuve', t: 'Règles de preuve', q: 'Comment Claude doit-il gérer ce qu’il ne sait pas ?', intro: 'Ces règles réduisent le risque d’informations inventées.',
       html: (w) => `<div class="blocks">${Object.keys(PS.PROOF).map((k) => toggle('proof', k, PS.PROOF_LABELS[k], PS.PROOF[k], w.proof[k])).join('')}${toggle('flag', 'french', 'Réponds en français', 'Ajoute la consigne de langue au prompt.', w.french)}</div>` },
     { id: 'blocs', t: 'Blocs avancés', q: 'Blocs du prompt universel', intro: 'Des blocs prêts à l’emploi pour des réponses plus fiables. Active ceux qui te servent.',
@@ -151,7 +164,7 @@
     return `<label class="toggle ${on ? 'on' : ''}"><input type="checkbox" data-${kind}="${key}" ${on ? 'checked' : ''}><span class="switch" aria-hidden="true"></span><span><b>${esc(title)}</b><small>${esc(desc)}</small></span></label>`;
   }
   PS.toggleHtml = toggle;
-  const stepDone = (s, w) => ({ role: !!w.role.trim(), objectif: !!w.objectif.trim(), audience: !!(w.audience.trim() || w.niveau), contexte: !!w.contexte.trim(), contraintes: !!(w.contraintes.trim() || w.exclure.trim()), format: w.format !== 'libre' || !!w.formatDetail.trim(), ton: w.ton.length > 0 || !!w.tonExtra.trim(), longueur: w.longueur !== 'auto', exemples: !!w.exemples.trim(), preuve: Object.values(w.proof).some(Boolean), blocs: Object.values(w.blocks).some(Boolean) }[s.id]);
+  const stepDone = (s, w) => ({ etapes: !!w.etapes.trim(), role: !!w.role.trim(), objectif: !!w.objectif.trim(), audience: !!(w.audience.trim() || w.niveau), contexte: !!w.contexte.trim(), contraintes: !!(w.contraintes.trim() || w.exclure.trim()), format: w.format !== 'libre' || !!w.formatDetail.trim(), ton: w.ton.length > 0 || !!w.tonExtra.trim(), longueur: w.longueur !== 'auto', exemples: !!(w.exemples.trim() || w.exemplesNote.trim()), preuve: Object.values(w.proof).some(Boolean), blocs: Object.values(w.blocks).some(Boolean) }[s.id]);
 
   V.generateur = (root) => {
     const st = PS.state;
@@ -160,7 +173,7 @@
     D.w = Object.assign(PS.emptyWizard(), D.w);
     const w = D.w;
     root.innerHTML = `
-      <div class="page-head"><div><span class="eyebrow">${icon('wand', 'sm')} Assistant détaillé</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Construis ton prompt pas à pas</h1><p class="hide-sm">Toutes les questions sont facultatives sauf l’objectif. Pressé ? <a href="#/rapide">Écris juste une phrase</a>.</p></div>
+      <div class="page-head"><div><span class="eyebrow">${icon('wand', 'sm')} Assistant détaillé</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Construis ton prompt pas à pas</h1><p class="hide-sm">Les étapes suivent la méthode ASPECCT. Toutes sont facultatives sauf l’action. Pressé ? <a href="#/rapide">Écris juste une phrase</a>.</p></div>
         <button class="btn ghost sm" type="button" id="wReset">${icon('history', 'sm')}Recommencer</button></div>
       <div class="wiz">
         <div>
@@ -174,7 +187,7 @@
           <pre class="preview-body" id="wPrev" tabindex="0"></pre>
           <div class="preview-foot">
             <button class="btn primary sm" type="button" id="wCopy">${icon('copy', 'sm')}Copier</button>
-            <button class="btn sm" type="button" id="wClaude">${icon('external', 'sm')}Ouvrir dans Claude</button>
+            <button class="btn sm" type="button" id="wClaude" ${PS.currentTarget() === 'claude' ? '' : 'hidden'}>${icon('external', 'sm')}Ouvrir dans Claude</button>
             <button class="btn sm" type="button" id="wSave">${icon('save', 'sm')}Enregistrer</button>
             <button class="btn sm ghost" type="button" id="wEdit">${icon('gauge', 'sm')}Vérifier</button>
             <span class="spacer"></span><span class="counter" id="wCount"></span>
@@ -225,6 +238,7 @@
       else if (b.hasAttribute('data-next')) go(D.step + 1);
       else if (b.hasAttribute('data-prev')) go(D.step - 1);
       else if (b.hasAttribute('data-finish')) finish();
+      else if (b.dataset.addline) { const k = b.dataset.addline; const cur = w[k].split('\n').filter((x) => x.trim()); if (!cur.includes(b.dataset.val)) cur.push(b.dataset.val); w[k] = cur.join('\n'); const i = $(`[data-k="${k}"]`, root); if (i) i.value = w[k]; renderPreview(); }
       else if (b.dataset.fill) { w[b.dataset.fill] = b.dataset.val; const i = $(`[data-k="${b.dataset.fill}"]`, root); if (i) i.value = b.dataset.val; renderPreview(); }
       else if (b.dataset.single) { w[b.dataset.single] = w[b.dataset.single] === b.dataset.val && b.dataset.single === 'niveau' ? '' : b.dataset.val; renderStep(); }
       else if (b.dataset.multi) { const arr = w[b.dataset.multi]; const i = arr.indexOf(b.dataset.val); i >= 0 ? arr.splice(i, 1) : arr.push(b.dataset.val); b.setAttribute('aria-pressed', i < 0); renderPreview(); }
@@ -242,17 +256,17 @@
     };
     function finish() {
       const t = text();
-      if (!w.objectif.trim()) { go(1); PS.toast('Ajoute au moins un objectif.', 'info'); return; }
+      if (!w.objectif.trim()) { go(0); PS.toast('Ajoute au moins l’action (la tâche).', 'info'); return; }
       const a = PS.analyze(t);
       PS.modal({ title: 'Ton prompt est prêt', body: `<div class="score" style="margin-bottom:14px"><div class="ring" style="--v:${a.score};--c:${PS.scoreColor(a.score)}"><span>${a.score}<small>/100</small></span></div><div><b>${a.level}</b><p class="small muted" style="margin:4px 0 0">Vérification automatique de la structure, pas une garantie de résultat.</p></div></div><pre class="prompt-box">${PS.highlight(t)}</pre>`,
-        foot: `<button class="btn ghost" type="button" data-close>Continuer à modifier</button><button class="btn" type="button" id="fSave">${icon('save', 'sm')}Enregistrer</button><button class="btn" type="button" id="fClaude">${icon('external', 'sm')}Ouvrir dans Claude</button><button class="btn primary" type="button" id="fCopy">${icon('copy', 'sm')}Copier</button>`,
-        onMount: (c, close) => { $('#fCopy', c).onclick = () => PS.copyPrompt(t); $('#fClaude', c).onclick = () => PS.openClaude(t); $('#fSave', c).onclick = () => { close(); PS.saveToProject(t, { title: w.objectif.trim().slice(0, 60) }); }; } });
+        foot: `<button class="btn ghost" type="button" data-close>Continuer à modifier</button><button class="btn" type="button" id="fSave">${icon('save', 'sm')}Enregistrer</button>${PS.currentTarget() === 'claude' ? `<button class="btn" type="button" id="fClaude">${icon('external', 'sm')}Ouvrir dans Claude</button>` : ''}<button class="btn primary" type="button" id="fCopy">${icon('copy', 'sm')}Copier</button>`,
+        onMount: (c, close) => { $('#fCopy', c).onclick = () => PS.copyPrompt(t); const fc = $('#fClaude', c); if (fc) fc.onclick = () => PS.openClaude(t); $('#fSave', c).onclick = () => { close(); PS.saveToProject(t, { title: w.objectif.trim().slice(0, 60) }); }; } });
     }
     renderStep();
   };
 
   // ================= ÉDITEUR / OPTIMISEUR =================
-  const INSERTS = [['role', 'Rôle'], ['goal', 'Objectif'], ['context', 'Contexte'], ['audience', 'Audience'], ['format', 'Format'], ['constraints', 'Contraintes'], ['examples', 'Exemple']];
+  const INSERTS = [['goal', 'Action'], ['steps', 'Étapes'], ['role', 'Persona'], ['examples', 'Exemples'], ['context', 'Contexte'], ['constraints', 'Contraintes'], ['format', 'Modèle'], ['rappel', 'Rappel'], ['audience', 'Audience']];
   PS.openInEditor = (text, source) => { PS.state.drafts.editor = text; PS.state.drafts.editorSource = source || null; PS.save(); location.hash = '#/editeur'; };
 
   V.editeur = (root) => {
@@ -282,13 +296,22 @@
             </div>
           </div>
           <div id="eAIOut"></div>
+          <section class="card o4" id="o4" aria-labelledby="o4T">
+            <div class="row" style="margin-bottom:6px"><h3 id="o4T" style="margin:0">${icon('wand', 'sm')} Optimiser en 4 étapes</h3><span class="spacer"></span><span class="tiny muted">Règles locales, sans IA</span></div>
+            <p class="small muted" style="margin:0 0 10px">Décomposer, diagnostiquer, développer, livrer : le site réécrit ton prompt avec la méthode ASPECCT et t’explique chaque changement.</p>
+            <div id="o4Opts"></div>
+            <div class="btn-row" style="margin-top:12px"><button class="btn primary" type="button" id="o4Go">${icon('wand', 'sm')}Optimiser</button></div>
+            <p class="tiny muted privacy">${icon('shield', 'sm')} ${esc(PS.method ? PS.method.PRIVACY : '')}</p>
+            <div id="o4Out"></div>
+          </section>
         </div>
         <aside class="stack" aria-label="Résultat de la vérification">
           <div class="card">
             <div class="score"><div class="ring" id="eRing"><span id="eScore">0<small>/100</small></span></div>
             <div><b id="eLevel" style="font-size:1.1rem">—</b><p class="small muted" style="margin:4px 0 0">Vérification heuristique locale : elle repère la présence d’éléments, elle ne juge pas leur qualité.</p></div></div>
           </div>
-          <div class="card"><h3>Éléments du prompt</h3><ul class="checks" id="eChecks"></ul></div>
+          <div class="card"><h3>Méthode ASPECCT</h3><p class="tiny muted" style="margin:-4px 0 8px">Action, Étapes, Persona, Exemples, Contexte, Contraintes, Modèle.</p><ul class="checks" id="eChecks"></ul><h4 class="sub">Compléments</h4><ul class="checks" id="eChecks2"></ul></div>
+          <div class="card" id="eNegCard" hidden><h3>Règles à dire en positif</h3><p class="small muted" style="margin:0 0 6px">Dire quoi faire marche mieux que dire quoi éviter.</p><ul class="checks" id="eNeg"></ul></div>
           <div class="card" id="eAmbCard"><h3>Mots à préciser</h3><p class="small muted" style="margin:0 0 6px">Ces mots ne sont pas des erreurs, mais ils laissent Claude deviner.</p><div id="eAmb"></div></div>
           <div id="eNotes" class="stack"></div>
         </aside>
@@ -301,9 +324,46 @@
       $('#eScore', root).innerHTML = `${a.score}<small>/100</small>`;
       $('#eLevel', root).textContent = a.words ? a.level : 'En attente de texte';
       $('#eCount', root).textContent = `${a.words} mots · ${a.chars} caractères`;
-      $('#eChecks', root).innerHTML = a.results.map((r) => `<li><span class="st ${r.pass ? 'ok' : 'no'}">${icon(r.pass ? 'check' : 'plus')}</span><span class="txt"><b>${esc(r.name)}</b><span>${esc(r.pass ? r.ok : r.no)}</span></span>${r.pass ? '' : `<button class="btn sm" type="button" data-fix="${r.id}">Ajouter</button>`}</li>`).join('');
+      const li = (r) => `<li><span class="st ${r.pass ? 'ok' : 'no'}">${r.g !== '+' ? `<i class="lt" aria-hidden="true">${r.g}</i>` : icon(r.pass ? 'check' : 'plus')}</span><span class="txt"><b>${esc(r.name)}${r.g !== '+' ? `<span class="sr"> : ${r.pass ? 'présent' : 'absent'}</span>` : ''}</b><span>${esc(r.pass ? r.ok : r.no)}</span></span>${r.pass || !r.insert ? '' : `<button class="btn sm" type="button" data-fix="${r.id}" aria-label="Ajouter : ${esc(r.name)}">Ajouter</button>`}</li>`;
+      $('#eChecks', root).innerHTML = a.results.filter((r) => r.g !== '+').map(li).join('');
+      $('#eChecks2', root).innerHTML = a.results.filter((r) => r.g === '+').map(li).join('');
+      const nb = (x) => String(x).replace(/^\s*[-•*]\s*/, '');
+      $('#eNegCard', root).hidden = !a.neg.length;
+      $('#eNeg', root).innerHTML = a.neg.slice(0, 8).map((n, i) => `<li><span class="st info">${icon('info')}</span><span class="txt"><b>« ${esc(nb(n.text).length > 90 ? nb(n.text).slice(0, 88) + '…' : nb(n.text))} »</b><span>${n.fix ? 'Plutôt : « ' + esc(nb(n.fix)) + ' »' : 'Dis plutôt ce qu’il faut faire (« Utilise uniquement… », « Garde… »).'}</span></span>${n.fix ? `<button class="btn sm" type="button" data-neg="${i}">Remplacer</button>` : ''}</li>`).join('') + (a.neg.filter((n) => n.fix).length > 1 ? `<li><button class="btn sm" type="button" id="eNegAll">${icon('check', 'sm')}Tout reformuler</button></li>` : '');
+      lastNeg = a.neg;
+      o4Opts();
       $('#eAmb', root).innerHTML = a.amb.length ? `<div class="amb">${a.amb.map((x) => `<span class="tag warn" title="${esc(x.tip)}">« ${esc(x.word)} »${x.count > 1 ? ' ×' + x.count : ''}</span>`).join('')}</div><ul class="checks" style="margin-top:8px">${a.amb.slice(0, 6).map((x) => `<li><span class="st info">${icon('info')}</span><span class="txt"><b>« ${esc(x.word)} »</b><span>${esc(x.tip)}</span></span></li>`).join('')}</ul>` : `<p class="small" style="margin:0">${a.words ? 'Aucun mot vague repéré.' : '—'}</p>`;
       $('#eNotes', root).innerHTML = a.notes.map((n) => `<div class="notice ${n.kind === 'warn' ? 'warn' : ''}">${icon(n.kind === 'warn' ? 'alert' : 'info')}<p>${esc(n.text)}</p></div>`).join('');
+    }
+    let lastNeg = [];
+    const E = st.drafts.opt4 = Object.assign({ mode: null, ans: {} }, st.drafts.opt4 || {});
+    let lastQs = '';
+    function o4Opts(force) {
+      const t = ta.value.trim(); const box = $('#o4Opts', root); if (!box) return;
+      if (!t) { box.innerHTML = ''; lastQs = ''; return; }
+      const a = PS.analyze(t), g = PS.phrase.infer(t.slice(0, 600)), type = PS.method.detectType(t, g), auto = PS.method.complexity(t, g, type);
+      const mode = E.mode || auto.mode; const qs = mode === 'detaille' ? PS.method.questions(g, t, a) : [];
+      const sig = mode + '|' + PS.currentTarget() + '|' + JSON.stringify(qs.map((q) => q.id)) + JSON.stringify(E.ans) + auto.mode;
+      if (sig === lastQs && !force) return; lastQs = sig;
+      box.innerHTML = `<div class="o4-opts">${PS.method.modeHtml(mode, auto, 'o4Mode')}<div class="tgrow"><span class="tiny muted">Pour :</span>${PS.method.targetHtml(PS.currentTarget(), 'o4Target')}</div></div>${PS.method.questionsHtml(qs, PS.method.answersOf(qs, E.ans))}`;
+      const ec = $('#eClaude', root); if (ec) ec.hidden = PS.currentTarget() !== 'claude';
+    }
+    function o4Run() {
+      const t = ta.value.trim(); const out = $('#o4Out', root);
+      if (!t) { ta.focus(); return PS.toast('Écris ou colle d’abord un prompt.', 'info'); }
+      const r = PS.method.optimize(t, { mode: E.mode || undefined, answers: E.ans, target: PS.currentTarget() });
+      const T = r.target;
+      out.innerHTML = `<div class="o4-res">${PS.method.progressHtml(4)}
+        <details class="more" ${E.mapOpen ? 'open' : ''} id="o4Map"><summary>${icon('layers', 'sm')} Décomposition et diagnostic <span class="tag">${esc(PS.method.TYPES[r.type].label)}</span></summary>${PS.method.mapHtml(r.decomp, r.diag)}</details>
+        <pre class="prompt-box" id="o4Prompt" tabindex="0" aria-label="Prompt optimisé">${PS.highlight(r.prompt)}</pre>
+        <div class="btn-row" style="margin-top:10px"><button class="btn primary sm" type="button" id="o4Use">${icon('check', 'sm')}Remplacer mon texte</button><button class="btn sm" type="button" id="o4Diff">${icon('diff', 'sm')}Voir les différences</button><button class="btn sm" type="button" id="o4Copy">${icon('copy', 'sm')}Copier</button>${T === 'claude' ? `<button class="btn sm" type="button" id="o4Claude">${icon('external', 'sm')}Ouvrir dans Claude</button>` : ''}</div>
+        ${PS.method.notesHtml(r.notes, true)}</div>`;
+      $('#o4Map', out).addEventListener('toggle', (e) => { E.mapOpen = e.target.open; });
+      $('#o4Use', out).onclick = () => { ta.value = r.prompt; update(); out.innerHTML = ''; PS.toast('Texte remplacé par la version optimisée'); };
+      $('#o4Diff', out).onclick = () => PS.showDiff(r.original, r.prompt, 'Ton texte', 'Version optimisée');
+      $('#o4Copy', out).onclick = () => PS.copyPrompt(r.prompt, T === 'claude' ? 'Prompt copié' : `Prompt copié : colle-le dans ${PS.TARGETS[T]}`);
+      const oc = $('#o4Claude', out); if (oc) oc.onclick = () => PS.openClaude(r.prompt);
+      out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     function insert(block) {
       const t = ta.value;
@@ -319,7 +379,17 @@
     document.addEventListener('click', function closeMenu(e) { const m = $('#eMenu', root); if (!m) return document.removeEventListener('click', closeMenu); if (m.open && !m.contains(e.target)) m.open = false; });
     root.addEventListener('click', (e) => {
       const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.ins || b.dataset.fix) { const c = PS.CRITERIA.find((x) => x.id === (b.dataset.ins || b.dataset.fix)); insert(c.insert); }
+      if (b.dataset.ins || b.dataset.fix) { const c = PS.CRITERIA.find((x) => x.id === (b.dataset.ins || b.dataset.fix)); const ins = typeof c.insert === 'function' ? c.insert(ta.value) : c.insert; if (ins) { const keep = document.activeElement === ta; if (c.id === 'rappel') { ta.blur(); } insert(ins); } }
+      else if (b.dataset.neg != null || b.id === 'eNegAll') {
+        const list = b.id === 'eNegAll' ? lastNeg.filter((n) => n.fix) : [lastNeg[+b.dataset.neg]];
+        const L = ta.value.split('\n'); let n = 0;
+        list.forEach((x) => { if (x && x.fix && L[x.line] != null && L[x.line].trim() === x.text) { L[x.line] = L[x.line].match(/^\s*/)[0] + x.fix; n++; } });
+        ta.value = L.join('\n'); update(); PS.toast(n > 1 ? `${n} règles reformulées` : 'Règle reformulée', 'check');
+      }
+      else if (b.dataset.mode4) { E.mode = b.dataset.mode4; o4Opts(true); $(`[data-mode4="${b.dataset.mode4}"]`, root).focus(); PS.saveSoon(); }
+      else if (b.dataset.target) { PS.state.settings.target = b.dataset.target; PS.saveSoon(); o4Opts(true); $(`[data-target="${b.dataset.target}"]`, root).focus(); if ($('#o4Out', root).innerHTML) o4Run(); }
+      else if (b.dataset.q) { E.ans = Object.assign({}, E.ans, { [b.dataset.q]: b.dataset.qv }); o4Opts(true); const nb = $(`[data-q="${b.dataset.q}"][data-qv="${CSS.escape(b.dataset.qv)}"]`, root); if (nb) nb.focus(); PS.saveSoon(); }
+      else if (b.id === 'o4Go') o4Run();
       else if (b.dataset.blk) { $('#eMenu', root).open = false; insert(PS.BLOCKS[b.dataset.blk].text()); }
     });
     $('#eCopy', root).onclick = () => PS.copyPrompt(ta.value);
@@ -351,7 +421,7 @@
     $('#aiStop', out).onclick = () => ctrl.abort();
     try {
       const original = ta.value;
-      const res = await PS.callClaude(PS.improveMeta(original), { signal: ctrl.signal });
+      const res = await PS.callClaude(PS.improveMeta(original, false), { signal: ctrl.signal, system: PS.method.systemFor(PS.currentTarget()) });
       const m = res.match(/<prompt>\s*([\s\S]*?)\s*<\/prompt>/i); const ch = res.match(/<changements>\s*([\s\S]*?)\s*<\/changements>/i);
       const improved = m ? m[1] : res;
       out.innerHTML = `<div class="card"><div class="row" style="margin-bottom:10px"><h3 style="margin:0">Proposition de Claude</h3><span class="spacer"></span><span class="tag">${esc(PS.state.settings.model)}</span></div>
