@@ -349,6 +349,11 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 hr.sep{border:0;border-top:1px solid var(--line);margin:22px 0}
 .footer{max-width:var(--maxw);margin:0 auto;padding:0 20px 40px;color:var(--ink-3);font-size:.84rem}
 details.more summary{cursor:pointer;font-weight:620;padding:6px 0}
+.imp-sec details.more>summary{display:flex;align-items:center;gap:8px;list-style:none;flex-wrap:wrap}
+.imp-sec details.more>summary::-webkit-details-marker{display:none}
+.imp-sec details.more>summary::before{content:'';width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .2s;flex:none;margin-right:2px}
+.imp-sec details.more[open]>summary::before{transform:rotate(45deg)}
+.imp-sec details.more>summary svg{flex:none}
 .danger-zone{border-color:color-mix(in srgb,var(--bad) 30%,var(--line))}
 
 /* --- Itération design 2 --- */
