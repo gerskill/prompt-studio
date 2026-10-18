@@ -68,7 +68,7 @@
     window.open(url, '_blank', 'noopener');
   }
 
-  function saveToProject(content, { title = '', note = 'Version initiale' } = {}) {
+  function saveToProject(content, { title = '', note = 'Version initiale', gen = null } = {}) {
     if (!String(content).trim()) return toast('Le prompt est vide.', 'info');
     const projects = PS.state.projects;
     const opts = projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
@@ -86,7 +86,7 @@
           let p;
           if (sel.value === '__new') p = PS.newProject({ name: $('#spNew', c).value.trim() || 'Nouveau projet' });
           else p = PS.findProject(sel.value);
-          const pr = PS.newPrompt(p, { title: $('#spTitle', c).value.trim() || 'Prompt sans nom', content, note });
+          const pr = PS.newPrompt(p, { title: $('#spTitle', c).value.trim() || 'Prompt sans nom', content, note, gen: gen || undefined, tags: gen ? ['une phrase'] : [] });
           close(); toast('Enregistré dans « ' + p.name + ' »');
           PS.lastSaved = { pid: p.id, prid: pr.id };
         });

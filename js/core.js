@@ -20,10 +20,10 @@
   // ---------- Stockage ----------
   const defaults = () => ({
     version: 1,
-    settings: { theme: 'system', model: 'claude-sonnet-5-5', french: true },
+    settings: { theme: 'system', model: 'claude-sonnet-5-5', french: true, profil: '' },
     projects: [],
     feedback: [],
-    drafts: { wizard: null, editor: '' }
+    drafts: { wizard: null, editor: '', phrase: null }
   });
   let state;
   const normalize = (raw) => {
@@ -136,6 +136,7 @@
     const now = Date.now();
     const content = data.content || '';
     const pr = { id: uid(), title: data.title || 'Nouveau prompt', tags: data.tags || [], content, createdAt: now, updatedAt: now, versions: [] };
+    if (data.gen) pr.gen = data.gen;
     if (content.trim()) pr.versions.push({ id: uid(), content, note: data.note || 'Version initiale', at: now });
     project.prompts.unshift(pr); project.updatedAt = now; save(); return pr;
   }
@@ -230,7 +231,7 @@
     const S = [];
     S.push(`RÔLE\n${role}`);
     if (blocks.includes('profil')) S.push(BLOCKS.profil.text(w));
-    if (w.contexte.trim()) S.push(`CONTEXTE\n${w.contexte.trim()}`);
+    if (w.contexte.trim()) S.push(`${w.contexteTitle || 'CONTEXTE'}\n${w.contexte.trim()}`);
     S.push(`OBJECTIF\n${w.objectif.trim() || P}${w.livrable.trim() ? '\nRésultat attendu : ' + w.livrable.trim() : ''}`);
     if (w.audience.trim() || w.niveau) S.push(`AUDIENCE\n${[w.audience.trim(), LEVELS[w.niveau] ? 'Niveau : ' + LEVELS[w.niveau] + '.' : ''].filter(Boolean).join('\n')}`);
     if (w.contraintes.trim()) S.push(`CONTRAINTES\n${bullets(w.contraintes)}`);

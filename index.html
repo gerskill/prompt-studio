@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Prompt Studio — Des prompts clairs pour Claude</title>
-<meta name="description" content="Crée, vérifie et range tes prompts pour Claude. Assistant guidé, éditeur libre, modèles prêts à l'emploi et espace projets. Tout reste sur ton appareil.">
+<meta name="description" content="Crée, vérifie et range tes prompts pour Claude. Une phrase suffit, assistant détaillé, éditeur libre, modèles prêts à l'emploi et espace projets. Tout reste sur ton appareil.">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#121214" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
@@ -20,6 +20,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
   <defs>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/></symbol>
     <symbol id="i-wand" viewBox="0 0 24 24"><path d="m15 4-1.5 3L10 8.5l3.5 1.5L15 13l1.5-3L20 8.5 16.5 7z"/><path d="M4 20 13 11"/><path d="M5 4v3M3.5 5.5h3M19 16v3M17.5 17.5h3"/></symbol>
     <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14 16 9"/><path d="M3.5 17a9 9 0 1 1 17 0"/><circle cx="12" cy="14.5" r="1.2"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></symbol>
@@ -69,7 +70,8 @@
       <span class="brand-name">Prompt Studio</span>
     </a>
     <nav class="nav" aria-label="Navigation principale">
-      <a href="#/generateur" data-nav="generateur">Assistant</a>
+      <a href="#/rapide" data-nav="rapide">Une phrase</a>
+      <a href="#/generateur" data-nav="generateur">Assistant détaillé</a>
       <a href="#/editeur" data-nav="editeur">Éditeur</a>
       <a href="#/modeles" data-nav="modeles">Modèles</a>
       <a href="#/projets" data-nav="projets">Projets</a>
@@ -88,11 +90,11 @@
 </main>
 
 <nav class="tabbar" aria-label="Navigation mobile">
-  <a href="#/accueil" data-nav="accueil"><svg class="ic"><use href="#i-home"/></svg><span>Accueil</span></a>
-  <a href="#/generateur" data-nav="generateur"><svg class="ic"><use href="#i-wand"/></svg><span>Assistant</span></a>
-  <a href="#/editeur" data-nav="editeur"><svg class="ic"><use href="#i-gauge"/></svg><span>Éditeur</span></a>
-  <a href="#/modeles" data-nav="modeles"><svg class="ic"><use href="#i-grid"/></svg><span>Modèles</span></a>
+  <a href="#/rapide" data-nav="rapide"><svg class="ic"><use href="#i-bolt"/></svg><span>Une phrase</span></a>
   <a href="#/projets" data-nav="projets"><svg class="ic"><use href="#i-folder"/></svg><span>Projets</span></a>
+  <a href="#/generateur" data-nav="generateur"><svg class="ic"><use href="#i-wand"/></svg><span>Détaillé</span></a>
+  <a href="#/modeles" data-nav="modeles"><svg class="ic"><use href="#i-grid"/></svg><span>Modèles</span></a>
+  <a href="#/accueil" data-nav="accueil"><svg class="ic"><use href="#i-home"/></svg><span>Accueil</span></a>
 </nav>
 
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
@@ -104,6 +106,7 @@
 <script src="js/views.js"></script>
 <script src="js/import.js"></script>
 <script src="js/views2.js"></script>
+<script src="js/phrase.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -12,11 +12,13 @@
     <section class="hero"><div class="hero-grid"><div>
       <span class="eyebrow">${icon('sparkle', 'sm')} Pour Claude, en français</span>
       <h1>Des prompts clairs, <em>sans jargon</em>.</h1>
-      <p class="lead">Réponds à quelques questions, pars d’un modèle ou colle ton prompt pour le vérifier. Ensuite, range tout dans tes projets avec l’historique des versions.</p>
-      <div class="btn-row">
-        <a class="btn primary lg" href="#/generateur">${icon('wand')}Créer mon premier prompt</a>
-        <a class="btn lg" href="#/modeles">${icon('grid')}Voir les modèles</a>
-      </div>
+      <p class="lead">Écris ta demande en une phrase : le site devine le reste et construit le prompt complet.</p>
+      <form class="hero-form" id="hForm" autocomplete="off">
+        <label class="sr" for="hText">Ta demande, en une phrase</label>
+        <textarea id="hText" rows="1" enterkeyhint="go" placeholder="Décris ce que tu veux en une phrase…"></textarea>
+        <button class="btn primary lg" type="submit" id="hGo">${icon('bolt')}Créer mon prompt</button>
+      </form>
+      <div class="hero-links"><a href="#/generateur">${icon('wand', 'sm')}Assistant détaillé</a><a href="#/modeles">${icon('grid', 'sm')}Modèles</a><a href="#/editeur">${icon('gauge', 'sm')}Vérifier un prompt</a></div>
       <div class="hero-pills">
         <span class="pill">${icon('check')}Gratuit, sans compte</span>
         <span class="pill">${icon('check')}Tes données restent sur ton appareil</span>
@@ -29,11 +31,18 @@
     </section>
 
     <h2 class="sr">Par où commencer</h2>
-    <div class="paths">
+    <div class="paths p4">
+      <a class="card card-link path" href="#/rapide">
+        <span class="tag accent level">Le plus rapide</span>
+        <span class="card-icon">${icon('bolt', 'lg')}</span>
+        <h3>Une phrase</h3>
+        <p>Tu écris ce que tu veux, le site devine le rôle, le ton et le format. Tu ajustes ensuite si besoin.</p>
+        <span class="go">Essayer ${icon('arrow', 'sm')}</span>
+      </a>
       <a class="card card-link path" href="#/generateur">
-        <span class="tag accent level">Débutant</span>
+        <span class="tag level">Débutant</span>
         <span class="card-icon">${icon('wand', 'lg')}</span>
-        <h3>Assistant guidé</h3>
+        <h3>Assistant détaillé</h3>
         <p>Une question à la fois : rôle, objectif, public, format… Tu vois ton prompt se construire en direct.</p>
         <span class="go">Commencer ${icon('arrow', 'sm')}</span>
       </a>
@@ -59,7 +68,7 @@
     <section class="section">
       <div class="section-head"><h2>Comment ça marche</h2><p>Trois étapes, du premier jet au prompt que tu réutilises.</p></div>
       <div class="steps">
-        <div class="card step"><h3>Décris ce que tu veux</h3><p class="muted">Avec l’assistant, un modèle ou ton propre texte. Les zones à compléter sont mises en évidence.</p></div>
+        <div class="card step"><h3>Décris ce que tu veux</h3><p class="muted">En une phrase, avec l’assistant détaillé, un modèle ou ton propre texte. Les zones à compléter sont mises en évidence.</p></div>
         <div class="card step"><h3>Vérifie et complète</h3><p class="muted">La vérification repère les éléments absents (rôle, format, exemple…) et les mots trop vagues.</p></div>
         <div class="card step"><h3>Utilise et range</h3><p class="muted">Copie le prompt ou ouvre-le dans Claude. Enregistre-le dans un projet pour garder ses versions.</p></div>
       </div>
@@ -78,6 +87,7 @@
         <div class="card yes"><h3>Ce que fait le site</h3><ul>
           <li>${icon('check')}Il t’aide à structurer tes demandes et à ne rien oublier.</li>
           <li>${icon('check')}Il range tes prompts et leurs versions dans ton navigateur.</li>
+          <li>${icon('check')}En mode « Une phrase », il devine les réglages avec des règles fixes (mots-clés), sans IA : vérifie ce qu’il a deviné.</li>
           <li>${icon('check')}Il fonctionne hors ligne une fois chargé.</li></ul></div>
         <div class="card no"><h3>Ce qu’il ne fait pas</h3><ul>
           <li>${icon('x')}Il ne garantit pas la qualité de la réponse de Claude : la note est une vérification automatique, pas un jugement.</li>
@@ -85,6 +95,10 @@
           <li>${icon('x')}Il n’est pas un produit officiel d’Anthropic.</li></ul></div>
       </div>
     </section>`;
+    const ht = $('#hText', root);
+    ht.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#hForm', root).requestSubmit ? $('#hForm', root).requestSubmit() : PS.startPhrase(ht.value); } });
+    ht.addEventListener('input', () => { ht.style.height = 'auto'; ht.style.height = Math.min(180, ht.scrollHeight + 2) + 'px'; });
+    $('#hForm', root).addEventListener('submit', (e) => { e.preventDefault(); if (!ht.value.trim()) { ht.focus(); return PS.toast('Écris d’abord ta demande en une phrase.', 'info'); } PS.startPhrase(ht.value); });
   };
 
   function projCard(p) {
@@ -146,7 +160,7 @@
     D.w = Object.assign(PS.emptyWizard(), D.w);
     const w = D.w;
     root.innerHTML = `
-      <div class="page-head"><div><span class="eyebrow">${icon('wand', 'sm')} Assistant guidé</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Construis ton prompt pas à pas</h1><p class="hide-sm">Toutes les questions sont facultatives sauf l’objectif. Tu peux sauter d’une étape à l’autre.</p></div>
+      <div class="page-head"><div><span class="eyebrow">${icon('wand', 'sm')} Assistant détaillé</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Construis ton prompt pas à pas</h1><p class="hide-sm">Toutes les questions sont facultatives sauf l’objectif. Pressé ? <a href="#/rapide">Écris juste une phrase</a>.</p></div>
         <button class="btn ghost sm" type="button" id="wReset">${icon('history', 'sm')}Recommencer</button></div>
       <div class="wiz">
         <div>

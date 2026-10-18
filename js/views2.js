@@ -69,9 +69,10 @@
   function validProject(p) { return p && typeof p.name === 'string' && Array.isArray(p.prompts); }
   function sanitizeProject(p) {
     const now = Date.now();
-    return { id: p.id || PS.uid(), name: String(p.name).slice(0, 200), description: String(p.description || ''), tags: Array.isArray(p.tags) ? p.tags.map(String) : [], notes: String(p.notes || ''),
+    return { id: p.id || PS.uid(), name: String(p.name).slice(0, 200), description: String(p.description || ''), tags: Array.isArray(p.tags) ? p.tags.map(String) : [], notes: String(p.notes || ''), status: String(p.status || ''),
+      ctx: p.ctx && typeof p.ctx === 'object' ? { mode: p.ctx.mode === 'manual' ? 'manual' : 'auto', ids: Array.isArray(p.ctx.ids) ? p.ctx.ids.map(String) : [], budget: +p.ctx.budget || 15000 } : undefined,
       createdAt: +p.createdAt || now, updatedAt: +p.updatedAt || now,
-      prompts: p.prompts.filter((x) => x && typeof x.content === 'string').map((x) => ({ id: x.id || PS.uid(), title: String(x.title || 'Prompt'), tags: Array.isArray(x.tags) ? x.tags.map(String) : [], content: x.content, createdAt: +x.createdAt || now, updatedAt: +x.updatedAt || now,
+      prompts: p.prompts.filter((x) => x && typeof x.content === 'string').map((x) => ({ id: x.id || PS.uid(), title: String(x.title || 'Prompt'), tags: Array.isArray(x.tags) ? x.tags.map(String) : [], content: x.content, createdAt: +x.createdAt || now, updatedAt: +x.updatedAt || now, ...(x.gen && typeof x.gen === 'object' ? { gen: { phrase: String(x.gen.phrase || ''), files: Array.isArray(x.gen.files) ? x.gen.files.map(String) : [] } } : {}),
         versions: Array.isArray(x.versions) ? x.versions.filter((v) => v && typeof v.content === 'string').map((v) => ({ id: v.id || PS.uid(), content: v.content, note: String(v.note || ''), at: +v.at || now })) : [] })) };
   }
   Object.assign(PS, { reId, validProject, sanitizeProject });
@@ -99,6 +100,7 @@
           <button class="btn sm danger" type="button" id="pdDel">${icon('trash', 'sm')}Supprimer</button>
         </div>
       </div>
+      ${PS.phrase.quickAddHtml(p)}
       <div class="pd">
         <div class="stack">
           <div class="card plist">
@@ -124,6 +126,8 @@
       }
     };
     $('#pdAdd', root).onclick = () => { const pr = PS.newPrompt(p, { title: 'Nouveau prompt' }); sel = pr.id; renderList(); renderMain(); const t = $('#prTitle', root); if (t) { t.focus(); t.select(); } };
+
+    PS.phrase.bindQuickAdd(root, p, (pr) => { sel = pr.id; history.replaceState(null, '', `#/projets/${p.id}/${sel}`); renderList(); renderMain(); const m = $('#pdMain', root); if (m && matchMedia('(max-width:1000px)').matches) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 
     function renderList() {
       const list = p.prompts.filter((x) => !pq || norm(x.title + ' ' + x.content + ' ' + x.tags.join(' ')).includes(norm(pq)));
@@ -325,7 +329,8 @@
         <div class="stack">
           <div class="card"><h3>Apparence</h3><p class="small muted">Le thème « Système » suit le réglage de ton appareil.</p>
             <div class="seg" role="group" aria-label="Thème">${[['system', 'Système'], ['light', 'Clair'], ['dark', 'Sombre']].map(([v, l]) => `<button type="button" data-theme-set="${v}" aria-pressed="${st.settings.theme === v}">${l}</button>`).join('')}</div></div>
-          <div class="card"><h3>Prompts</h3>${PS.toggleHtml('set', 'french', 'Ajouter « Réponds en français » par défaut', 'Utilisé par l’assistant guidé pour les nouveaux prompts.', st.settings.french !== false)}</div>
+          <div class="card"><h3>Prompts</h3>${PS.toggleHtml('set', 'french', 'Ajouter « Réponds en français » par défaut', 'Utilisé par l’assistant détaillé pour les nouveaux prompts.', st.settings.french !== false)}
+            <div class="field" style="margin:14px 0 0"><label class="lbl" for="sProfil">Mon profil <span class="muted">(facultatif)</span></label><span class="hint">Ajouté comme « Profil fixe » aux prompts créés en une phrase. Ne mets rien de confidentiel.</span><textarea id="sProfil" rows="3" maxlength="1200" placeholder="Qui tu es, ton niveau, tes outils, tes préférences">${esc(st.settings.profil || '')}</textarea></div></div>
           <div class="card"><h3>Mes données</h3><p class="small muted">${n} projet${n > 1 ? 's' : ''}, ${np} prompt${np > 1 ? 's' : ''}, ${st.feedback.length} avis. <span id="sStore">Calcul de l’espace utilisé…</span></p>
             <div class="btn-row"><button class="btn" type="button" id="sExp">${icon('download', 'sm')}Tout exporter (JSON)</button><button class="btn" type="button" id="sImp">${icon('upload', 'sm')}Importer</button></div></div>
           <div class="card danger-zone"><h3>Tout supprimer</h3><p class="small muted">Efface projets, avis, brouillons et clé API de ce navigateur. Impossible à annuler.</p><button class="btn danger" type="button" id="sDel">${icon('trash', 'sm')}Supprimer toutes mes données</button></div>
@@ -346,6 +351,7 @@
       const mb = (x) => x < 1048576 ? Math.max(1, Math.round(x / 1024)) + ' Ko' : (x / 1048576).toFixed(1).replace('.', ',') + ' Mo';
       el.textContent = si.backend === 'idb' ? `Stockage : base de données du navigateur (IndexedDB), ${mb(si.data)} de données. Espace disponible pour le site : environ ${si.quota > 1073741824 ? (si.quota / 1073741824).toFixed(1).replace('.', ',') + ' Go' : mb(si.quota)}. Exporte quand même régulièrement : tes données ne sont que sur cet appareil.`
         : `Stockage de secours (localStorage, environ 5 Mo) : ${mb(si.used)} utilisés. IndexedDB n’est pas disponible dans ce navigateur${PS.initError ? ' (' + PS.initError.message + ')' : ''}. Exporte régulièrement.`; });
+    $('#sProfil', root).addEventListener('input', (e) => { st.settings.profil = e.target.value; PS.saveSoon(); });
     $('#sShow', root).onclick = () => { const i = $('#sKey', root); i.type = i.type === 'password' ? 'text' : 'password'; };
     $('#sKeySave', root).onclick = () => { const k = $('#sKey', root).value.trim(); st.settings.model = $('#sModel', root).value.trim() || 'claude-sonnet-5-5'; PS.setKey(k); PS.save(); PS.toast(k ? 'Clé et modèle enregistrés' : 'Modèle enregistré'); };
     $('#sKeyDel', root).onclick = () => { PS.setKey(''); $('#sKey', root).value = ''; PS.toast('Clé supprimée', 'trash'); };

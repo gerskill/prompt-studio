@@ -4,7 +4,7 @@
   const { $, $$, icon } = PS;
   PS.load(); // état provisoire (synchrone) en attendant IndexedDB
 
-  const TITLES = { accueil: 'Accueil', generateur: 'Assistant guidé', editeur: 'Éditeur et vérification', modeles: 'Modèles', projets: 'Projets', demarrer: 'Démarrer un projet', avis: 'Avis', reglages: 'Réglages' };
+  const TITLES = { accueil: 'Accueil', rapide: 'Une phrase', generateur: 'Assistant détaillé', editeur: 'Éditeur et vérification', modeles: 'Modèles', projets: 'Projets', demarrer: 'Démarrer un projet', avis: 'Avis', reglages: 'Réglages' };
   const mq = matchMedia('(prefers-color-scheme: dark)');
   PS.applyTheme = () => {
     const t = PS.state.settings.theme === 'system' ? (mq.matches ? 'dark' : 'light') : PS.state.settings.theme;
