@@ -72,8 +72,14 @@
     return { id: p.id || PS.uid(), name: String(p.name).slice(0, 200), description: String(p.description || ''), tags: Array.isArray(p.tags) ? p.tags.map(String) : [], notes: String(p.notes || ''), status: String(p.status || ''),
       ctx: p.ctx && typeof p.ctx === 'object' ? { mode: p.ctx.mode === 'manual' ? 'manual' : 'auto', ids: Array.isArray(p.ctx.ids) ? p.ctx.ids.map(String) : [], budget: +p.ctx.budget || 15000 } : undefined,
       createdAt: +p.createdAt || now, updatedAt: +p.updatedAt || now,
-      prompts: p.prompts.filter((x) => x && typeof x.content === 'string').map((x) => ({ id: x.id || PS.uid(), title: String(x.title || 'Prompt'), tags: Array.isArray(x.tags) ? x.tags.map(String) : [], content: x.content, createdAt: +x.createdAt || now, updatedAt: +x.updatedAt || now, ...(x.gen && typeof x.gen === 'object' ? { gen: { phrase: String(x.gen.phrase || ''), files: Array.isArray(x.gen.files) ? x.gen.files.map(String) : [] } } : {}),
-        versions: Array.isArray(x.versions) ? x.versions.filter((v) => v && typeof v.content === 'string').map((v) => ({ id: v.id || PS.uid(), content: v.content, note: String(v.note || ''), at: +v.at || now })) : [] })) };
+      ...(p.srcRoot ? { srcRoot: String(p.srcRoot) } : {}), ...(+p.syncedAt ? { syncedAt: +p.syncedAt } : {}),
+      ...(Array.isArray(p.trash) ? { trash: p.trash.filter((t) => t && t.prompt && typeof t.prompt.content === 'string').map((t) => ({ id: t.id || PS.uid(), prompt: sanitizePrompt(t.prompt, now), key: String(t.key || ''), removedAt: +t.removedAt || now, reason: String(t.reason || '') })) } : {}),
+      prompts: p.prompts.filter((x) => x && typeof x.content === 'string').map((x) => sanitizePrompt(x, now)) };
+  }
+  function sanitizePrompt(x, now) {
+    return { id: x.id || PS.uid(), title: String(x.title || 'Prompt'), tags: Array.isArray(x.tags) ? x.tags.map(String) : [], content: x.content, createdAt: +x.createdAt || now, updatedAt: +x.updatedAt || now, ...(x.gen && typeof x.gen === 'object' ? { gen: { phrase: String(x.gen.phrase || ''), files: Array.isArray(x.gen.files) ? x.gen.files.map(String) : [] } } : {}),
+      ...(x.src ? { src: String(x.src) } : {}), ...(x.srcHash ? { srcHash: String(x.srcHash) } : {}),
+      versions: Array.isArray(x.versions) ? x.versions.filter((v) => v && typeof v.content === 'string').map((v) => ({ id: v.id || PS.uid(), content: v.content, note: String(v.note || ''), at: +v.at || now })) : [] };
   }
   Object.assign(PS, { reId, validProject, sanitizeProject });
   const exportProject = (p) => PS.download(`prompt-studio-${PS.slug(p.name)}.json`, JSON.stringify({ app: 'prompt-studio', version: 1, exportedAt: new Date().toISOString(), project: p }, null, 2));
@@ -82,6 +88,7 @@
   function projectDetail(root, pid, prid) {
     const p = PS.findProject(pid);
     if (!p) { root.innerHTML = `<div class="empty"><h3>Projet introuvable</h3><p>Il a peut-être été supprimé.</p><a class="btn" href="#/projets">Retour aux projets</a></div>`; return; }
+    if (PS.resync.purgeTrash(p)) PS.saveSoon(); // corbeille : plus de 30 jours → supprimé
     let sel = prid && p.prompts.find((x) => x.id === prid) ? prid : (p.prompts[0] && p.prompts[0].id);
     let pq = '';
     const touch = () => { p.updatedAt = Date.now(); PS.saveSoon(); };
@@ -100,6 +107,7 @@
           <button class="btn sm danger" type="button" id="pdDel">${icon('trash', 'sm')}Supprimer</button>
         </div>
       </div>
+      ${PS.resync.barHtml(p)}
       ${PS.phrase.quickAddHtml(p)}
       <div class="pd">
         <div class="stack">
@@ -127,6 +135,8 @@
     };
     $('#pdAdd', root).onclick = () => { const pr = PS.newPrompt(p, { title: 'Nouveau prompt' }); sel = pr.id; renderList(); renderMain(); const t = $('#prTitle', root); if (t) { t.focus(); t.select(); } };
 
+    PS.resync.bindBar(root, p);
+    PS.importer.bindDrop(root, { title: 'Dépose le dossier pour mettre à jour ce projet', text: 'Tu pourras choisir : mettre à jour « ' + p.name + ' » ou importer comme d’habitude.', onDrop: (prom) => PS.resync.dropChoice(p, prom) });
     PS.phrase.bindQuickAdd(root, p, (pr) => { sel = pr.id; history.replaceState(null, '', `#/projets/${p.id}/${sel}`); renderList(); renderMain(); const m = $('#pdMain', root); if (m && matchMedia('(max-width:1000px)').matches) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 
     function renderList() {

@@ -3,7 +3,7 @@
   'use strict';
   const { $, $$, esc, icon } = PS;
 
-  function toast(msg, ic = 'check', ms = 2400) {
+  function toast(msg, ic = 'check', ms = 2400, action = null) {
     const box = $('#toasts');
     const d = $('#modal');
     const host = d.open ? d : document.body;
@@ -12,8 +12,14 @@
     const all = $$('.toast', box); if (all.length >= 2) all[0].remove();
     const t = document.createElement('div'); t.dataset.msg = msg;
     t.className = 'toast'; t.innerHTML = icon(ic) + '<span>' + esc(msg) + '</span>';
+    if (action) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-act'; b.textContent = action.label;
+      b.addEventListener('click', () => { t.remove(); action.onClick(); });
+      t.appendChild(b); t.classList.add('has-act');
+    }
     box.appendChild(t);
     setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, ms);
+    return t;
   }
 
   let onCloseCb = null;

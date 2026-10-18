@@ -487,3 +487,23 @@ summary.btn::-webkit-details-marker{display:none}
 .qp-done .qp-foot{justify-content:flex-end}
 @media (max-width:620px){.gchips{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}.gchip{width:100%;flex-direction:column;align-items:stretch;border-radius:12px;padding-top:6px}.gchip span{font-size:.64rem;padding:0 10px}.gchip select{max-width:none;width:100%;min-width:0;padding:2px 26px 7px 10px;min-height:30px;border-radius:0 0 12px 12px;font-size:.86rem;background-position:calc(100% - 15px) 40%,calc(100% - 10px) 40%}.gblocks .chip{font-size:.8rem;padding:6px 10px;justify-content:flex-start;text-align:left;border-radius:12px}}
 @media (max-width:620px){.gchip.wide{grid-column:1/-1}}
+
+/* ---------- Mise à jour depuis le dossier ---------- */
+.sync-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);font-size:.88rem}
+.sync-txt{display:flex;align-items:center;gap:8px;flex:1 1 280px;min-width:0;color:var(--ink-2)}
+.sync-txt .ic{flex:none;color:var(--ink-3)}
+.sync-bar .btn-row{margin:0;flex-wrap:wrap}
+.sync-hint{flex-basis:100%;order:3;margin:0;display:flex;gap:6px;align-items:flex-start;font-size:.82rem;color:var(--ink-2)}
+.sync-hint .ic{flex:none;margin-top:2px;color:var(--warn)}
+.sync-bar.stale{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 25%,var(--line))}
+.rs-sec .imp-list{max-height:240px}
+.tr-row{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;min-height:48px}
+.choice-list{display:grid;gap:10px}
+.choice{display:flex;gap:14px;align-items:flex-start;text-align:left;width:100%;font:inherit;cursor:pointer;padding:16px}
+.choice b{display:block;margin-bottom:3px}.choice span span{display:block;font-size:.86rem;color:var(--ink-2)}
+.choice .card-icon{flex:none;margin:0}
+.toast.has-act{padding-right:8px}
+.toast-act{font:inherit;font-weight:700;background:transparent;color:var(--bg);border:1px solid color-mix(in srgb,var(--bg) 45%,transparent);border-radius:10px;padding:6px 12px;min-height:36px;cursor:pointer;margin-left:4px}
+.toast-act:hover{background:color-mix(in srgb,var(--bg) 14%,transparent)}
+.toast-act:focus-visible{outline:2px solid var(--bg);outline-offset:2px}
+.rs-sec>.row>b,#rsSame p{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#rsSame p{display:block}#rsSame p .ic{vertical-align:-3px;margin-right:4px}

@@ -241,7 +241,8 @@
     const list = p.prompts.filter((x) => !x.gen).map((x) => {
       const v0 = x.versions && x.versions[0];
       const m = v0 && /Importé depuis « (.+) »/.exec(v0.note || '');
-      return { id: x.id, label: m ? m[1] : x.title, file: !!m, tags: x.tags || [], content: x.content || '', updatedAt: x.updatedAt };
+      const label = x.src ? (p.srcRoot ? p.srcRoot + '/' + x.src : x.src) : m ? m[1] : x.title;
+      return { id: x.id, label, file: !!(x.src || m), tags: x.tags || [], content: x.content || '', updatedAt: x.updatedAt };
     });
     // dossier racine commun (ex. « coach-killian/ ») retiré des noms pour qu'ils restent lisibles
     const files = list.filter((x) => x.file);
@@ -522,6 +523,7 @@ ${g.sentence}
   function bindQuickAdd(root, p, onAdded) {
     const ta = $('#qaText', root);
     p.ctx = Object.assign({ mode: 'auto', ids: [], budget: DEFAULT_BUDGET }, p.ctx || {});
+    PS.resync.cleanCtx(p); // fichiers retirés (mise à jour depuis le dossier, suppression) : plus dans la sélection
     const line = () => {
       const c = projectContext(p, ta.value, p.ctx);
       const n = c.used.length, nf = c.items.length;

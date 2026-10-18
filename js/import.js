@@ -161,6 +161,9 @@
     return res;
   }
 
+  // Chemin relatif au dossier racine (le nom du dossier racine peut changer)
+  const relPath = (path, top) => (top && path.startsWith(top + '/') ? path.slice(top.length + 1) : path);
+
   // ---------- Stockage ----------
   // Un prompt importé est stocké deux fois : texte courant + version initiale
   const promptCost = (t) => JSON.stringify(t.content).length * 2 + JSON.stringify(t.title).length + (t.tag || '').length + 260;
@@ -274,7 +277,9 @@
       let p = target && PS.findProject(target);
       if (!p) { p = { id: PS.uid(), name, description: `Importé depuis ${res.top ? 'le dossier « ' + res.top + ' »' : tSel.length > 1 ? tSel.length + ' fichiers' : 'un fichier'} le ${PS.fmtDay(now)}.`, tags: ['import'], notes: '', createdAt: now, updatedAt: now, prompts: [] }; st.projects.unshift(p); }
       const prompts = tSel.map((t, i) => ({ id: PS.uid(), title: t.title, tags: t.tag ? [t.tag] : [], content: t.content, createdAt: now + i, updatedAt: now + i,
+        src: relPath(t.path, res.top), srcHash: PS.hash(t.content),
         versions: [{ id: PS.uid(), content: t.content, note: 'Importé depuis « ' + t.path + ' »', at: now + i }] }));
+      if (!target && res.top) { p.srcRoot = res.top; p.syncedAt = now; }
       p.prompts = prompts.concat(p.prompts); p.updatedAt = now;
       if (target) { st.projects = [p].concat(st.projects.filter((x) => x !== p)); }
       openId = p.id; nPrompts += prompts.length;
@@ -323,6 +328,20 @@ ${(e && e.stack) || ''}`.slice(0, 2000))}</pre>`,
     } catch (e) { showError('Impossible de lire ces fichiers', e); }
     finally { busy = false; }
   }
+  // Mise à jour d'un projet depuis son dossier : même lecture que l'import, puis aperçu des différences
+  async function handleResync(collectPromise, pid, source) {
+    if (busy) return; busy = true;
+    try {
+      const collected = await collectPromise;
+      const n = collected ? collected.items.length : 0;
+      console.info(`[Prompt Studio] Mise à jour (${source || '?'}) : ${n} fichier(s) reçu(s)`);
+      if (n > 30) PS.toast(`Analyse de ${n} fichiers…`, 'info', 1800);
+      const res = await analyze(collected || { items: [], hidden: 0 });
+      res.flat = !!n && collected.items.every((x) => !x.path.includes('/'));
+      PS.resync.open(pid, res);
+    } catch (e) { showError('Impossible de lire ce dossier', e); }
+    finally { busy = false; }
+  }
   // Champ fichier persistant, hors écran (pas display:none : Safari et certains navigateurs l'ignorent)
   const inputs = {};
   function getInput(dir) {
@@ -339,7 +358,9 @@ ${(e && e.stack) || ''}`.slice(0, 2000))}</pre>`,
         if (!files.length && Date.now() - lastAt < 1500) return; // « input » + « change » pour la même sélection
         lastAt = Date.now();
         try { i.value = ''; } catch (e) {}
-        handle(Promise.resolve({ items: fromFileList(files), hidden: 0 }), (dir ? 'dossier' : 'fichiers') + '/' + ev.type);
+        const src = (dir ? 'dossier' : 'fichiers') + '/' + ev.type, pid = pendingResync; pendingResync = null;
+        const prom = Promise.resolve({ items: fromFileList(files), hidden: 0 });
+        if (pid) handleResync(prom, pid, src); else handle(prom, src);
       };
       i.addEventListener('change', onPick);
       i.addEventListener('input', onPick);
@@ -349,21 +370,23 @@ ${(e && e.stack) || ''}`.slice(0, 2000))}</pre>`,
     try { i.value = ''; } catch (e) {}
     return i;
   }
-  function pick(dir) {
+  let pendingResync = null; // id du projet à mettre à jour, si le sélecteur a été ouvert pour ça
+  function pick(dir, resyncPid) {
+    pendingResync = resyncPid || null;
     try { const i = getInput(dir); i.click(); }
     catch (e) { showError('Impossible d’ouvrir le sélecteur de fichiers', e); }
   }
-  function bindDrop(root) {
+  function bindDrop(root, opts = {}) {
     const ov = document.createElement('div');
     ov.className = 'drop-overlay'; ov.hidden = true;
-    ov.innerHTML = `<div class="drop-card">${icon('upload', 'lg')}<b>Dépose ici tes fichiers ou un dossier</b><span>Un dossier devient un projet, chaque fichier texte devient un prompt.</span></div>`;
+    ov.innerHTML = `<div class="drop-card">${icon('upload', 'lg')}<b>${esc(opts.title || 'Dépose ici tes fichiers ou un dossier')}</b><span>${esc(opts.text || 'Un dossier devient un projet, chaque fichier texte devient un prompt.')}</span></div>`;
     root.appendChild(ov);
     let depth = 0;
     const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
     root.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; ov.hidden = false; });
     root.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
     root.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) ov.hidden = true; });
-    root.addEventListener('drop', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; ov.hidden = true; handle(fromDataTransfer(e.dataTransfer), 'glisser-déposer'); });
+    root.addEventListener('drop', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; ov.hidden = true; const prom = fromDataTransfer(e.dataTransfer); if (opts.onDrop) opts.onDrop(prom); else handle(prom, 'glisser-déposer'); });
   }
 
   PS.importer = {
@@ -373,6 +396,8 @@ ${(e && e.stack) || ''}`.slice(0, 2000))}</pre>`,
     pickHint: 'Le navigateur peut demander de confirmer (« Importer N fichiers ? ») : les fichiers restent sur ton appareil, rien n’est envoyé sur Internet.',
     dropHint: coarse ? '' : 'Astuce : tu peux aussi glisser-déposer un dossier ou plusieurs fichiers sur cette page.',
     pickFiles: () => pick(false), pickDir: () => pick(true), bindDrop,
+    pickResync: (pid) => pick(!!supportsDir, pid), resyncFrom: (prom, pid) => handleResync(prom, pid, 'glisser-déposer'),
+    relPath, skippedHtml, fmtSize, showError,
     // exposés pour les tests
     _walkEntries: walkEntries, _analyze: analyze, _fromFileList: fromFileList, _handle: handle
   };

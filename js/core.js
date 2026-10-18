@@ -15,6 +15,8 @@
   const fmtDay = (t) => new Date(t).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' });
   const debounce = (fn, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
+  // Empreinte rapide d'un texte (FNV-1a 32 bits) pour savoir si un fichier a changé
+  const hash = (s) => { let h = 0x811c9dc5; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(16).padStart(8, '0') + s.length.toString(36); };
   const tagsFrom = (s) => Array.from(new Set(String(s || '').split(',').map((x) => x.trim()).filter(Boolean)));
 
   // ---------- Stockage ----------
@@ -421,7 +423,7 @@ ${p}
   }
 
   window.PS = Object.assign(window.PS || {}, {
-    $, $$, uid, esc, icon, words, fmtDate, fmtDay, debounce, clone, tagsFrom,
+    $, $$, uid, esc, icon, words, fmtDate, fmtDay, debounce, clone, tagsFrom, hash,
     load, init, ready, save, saveSoon, storageInfo, resetAll, defaults, getKey, setKey,
     newProject, newPrompt, findProject,
     PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, emptyWizard, buildPrompt,
