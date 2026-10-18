@@ -26,21 +26,103 @@
     drafts: { wizard: null, editor: '' }
   });
   let state;
+  const normalize = (raw) => {
+    const st = Object.assign(defaults(), raw || {});
+    st.settings = Object.assign(defaults().settings, st.settings || {});
+    st.drafts = Object.assign(defaults().drafts, st.drafts || {});
+    if (!Array.isArray(st.projects)) st.projects = [];
+    if (!Array.isArray(st.feedback)) st.feedback = [];
+    return st;
+  };
+  // Lecture synchrone depuis localStorage (ancien stockage, et secours si IndexedDB est indisponible)
   function load() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
-      state = Object.assign(defaults(), raw || {});
-      state.settings = Object.assign(defaults().settings, state.settings || {});
-      state.drafts = Object.assign(defaults().drafts, state.drafts || {});
-    } catch (e) { state = defaults(); }
+    try { state = normalize(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch (e) { state = defaults(); }
     return state;
   }
-  let saveErr = false;
+
+  // ---------- IndexedDB (stockage principal, bien plus grand que localStorage) ----------
+  const DB_NAME = 'prompt-studio', DB_STORE = 'kv';
+  let db = null, backend = 'local', initError = null;
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      if (!('indexedDB' in window) || !window.indexedDB) return reject(new Error('IndexedDB indisponible'));
+      let done = false;
+      const timer = setTimeout(() => { if (!done) { done = true; reject(new Error('IndexedDB ne répond pas')); } }, 5000);
+      let r;
+      try { r = indexedDB.open(DB_NAME, 1); } catch (e) { clearTimeout(timer); return reject(e); }
+      r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(DB_STORE)) r.result.createObjectStore(DB_STORE); };
+      r.onsuccess = () => { if (done) return; done = true; clearTimeout(timer); resolve(r.result); };
+      r.onerror = () => { if (done) return; done = true; clearTimeout(timer); reject(r.error || new Error('Ouverture IndexedDB refusée')); };
+      r.onblocked = () => { if (done) return; done = true; clearTimeout(timer); reject(new Error('IndexedDB bloquée par un autre onglet')); };
+    });
+  }
+  const idbGet = (k) => new Promise((res, rej) => { try { const q = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); } catch (e) { rej(e); } });
+  const idbPut = (k, v) => new Promise((res, rej) => {
+    try { const tx = db.transaction(DB_STORE, 'readwrite'); tx.objectStore(DB_STORE).put(v, k); tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error || new Error('Écriture refusée')); tx.onabort = () => rej(tx.error || new Error('Écriture annulée (stockage plein ?)')); }
+    catch (e) { rej(e); }
+  });
+  let readyResolve; const ready = new Promise((r) => (readyResolve = r));
+  async function init() {
+    try {
+      db = await openDB();
+      const stored = await idbGet('state');
+      if (stored) state = normalize(stored);
+      else {
+        load(); // migration automatique depuis localStorage
+        await idbPut('state', state);
+        const check = await idbGet('state');
+        if (!check) throw new Error('Migration non vérifiée');
+        try { if (localStorage.getItem(KEY)) { localStorage.removeItem(KEY); console.info('[Prompt Studio] Données déplacées de localStorage vers IndexedDB.'); } } catch (e) {}
+      }
+      backend = 'idb';
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) {
+      initError = e; backend = 'local'; db = null;
+      console.warn('[Prompt Studio] IndexedDB indisponible, utilisation de localStorage :', e);
+      load();
+    }
+    writeTheme();
+    readyResolve(backend);
+    return backend;
+  }
+  function writeTheme() { try { localStorage.setItem('ps.theme', (state && state.settings && state.settings.theme) || 'system'); } catch (e) {} }
+
+  let saveErr = false, chain = Promise.resolve(true);
+  const saveFailed = (e) => {
+    console.error('[Prompt Studio] Enregistrement impossible :', e);
+    const full = e && (e.name === 'QuotaExceededError' || /quota|plein/i.test(e.message || ''));
+    if (!saveErr) { saveErr = true; PS.toast(full ? 'Impossible d’enregistrer : le stockage du navigateur est plein.' : 'Impossible d’enregistrer : ' + ((e && (e.message || e.name)) || 'erreur inconnue'), 'alert', 5000); }
+    PS.lastSaveError = e;
+    return false;
+  };
+  // Renvoie une promesse : true si l'enregistrement a réussi, false sinon
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); saveErr = false; return true; }
-    catch (e) { if (!saveErr) { saveErr = true; PS.toast("Impossible d'enregistrer : le stockage du navigateur est plein ou bloqué.", 'alert'); } return false; }
+    if (!state) return Promise.resolve(false);
+    writeTheme();
+    if (backend === 'idb' && db) {
+      chain = chain.then(() => idbPut('state', state)).then(() => { saveErr = false; return true; }, saveFailed);
+      return chain;
+    }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); saveErr = false; return Promise.resolve(true); }
+    catch (e) { return Promise.resolve(saveFailed(e)); }
   }
   const saveSoon = debounce(save, 300);
+  // Espace utilisé / disponible
+  async function storageInfo() {
+    const size = (() => { try { return JSON.stringify(state).length; } catch (e) { return 0; } })();
+    if (backend === 'idb') {
+      let quota = 0, usage = size;
+      try { if (navigator.storage && navigator.storage.estimate) { const est = await navigator.storage.estimate(); quota = est.quota || 0; usage = Math.max(size, est.usage || 0); } } catch (e) {}
+      return { backend, used: usage, data: size, quota: quota || 500 * 1048576 };
+    }
+    let used = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } } catch (e) {}
+    return { backend, used, data: size, quota: 5 * 1048576 };
+  }
+  async function resetAll() {
+    try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_API); localStorage.removeItem('ps.theme'); } catch (e) {}
+    state = defaults();
+    return save();
+  }
   const getKey = () => { try { return localStorage.getItem(KEY_API) || ''; } catch (e) { return ''; } };
   const setKey = (k) => { try { k ? localStorage.setItem(KEY_API, k) : localStorage.removeItem(KEY_API); } catch (e) {} };
 
@@ -339,11 +421,13 @@ ${p}
 
   window.PS = Object.assign(window.PS || {}, {
     $, $$, uid, esc, icon, words, fmtDate, fmtDay, debounce, clone, tagsFrom,
-    load, save, saveSoon, defaults, getKey, setKey,
+    load, init, ready, save, saveSoon, storageInfo, resetAll, defaults, getKey, setKey,
     newProject, newPrompt, findProject,
     PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, emptyWizard, buildPrompt,
     CRITERIA, analyze, diffLines, varsOf, fillVars, CLAUDE_URL_MAX, claudeLink, callClaude, improveMeta,
     download, pickFile, projectToMarkdown, slug, copy, KEY, KEY_API
   });
   Object.defineProperty(window.PS, 'state', { get: () => state, set: (v) => { state = v; }, configurable: true });
+  Object.defineProperty(window.PS, 'backend', { get: () => backend, configurable: true });
+  Object.defineProperty(window.PS, 'initError', { get: () => initError, configurable: true });
 })();

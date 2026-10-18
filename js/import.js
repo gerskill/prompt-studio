@@ -5,9 +5,9 @@
 
   const MAX_SIZE = 500 * 1024;          // au-delà : ignoré
   const MAX_FILES = 1000;               // garde-fou
-  const LIMIT = 5 * 1024 * 1024;        // estimation de la limite du stockage local (caractères)
+  const MAX_DOC_SIZE = 15 * 1024 * 1024; // .docx / .odt : le texte est extrait, les images ignorées
   const BINARY_EXT = new Set(('png jpg jpeg gif webp bmp ico tif tiff heic heif avif psd ai sketch fig pdf zip gz tgz bz2 xz rar 7z tar dmg iso exe dll so dylib bin class jar war apk ipa ' +
-    'mp3 wav ogg flac m4a aac mp4 mov avi mkv webm wmv woff woff2 ttf otf eot doc docx xls xlsx ppt pptx odt ods odp key numbers pages sqlite db wasm pyc o a lib').split(' '));
+    'mp3 wav ogg flac m4a aac mp4 mov avi mkv webm wmv woff woff2 ttf otf eot doc xls xlsx ppt pptx ods odp key numbers pages sqlite db wasm pyc o a lib').split(' '));
   const IGNORED_DIRS = new Set(['node_modules', '__MACOSX', '__pycache__']);
 
   const ua = navigator.userAgent || '';
@@ -16,7 +16,7 @@
   const supportsDir = 'webkitdirectory' in document.createElement('input') && !isIOS && !isAndroid;
   const coarse = matchMedia('(pointer: coarse)').matches;
 
-  const fmtSize = (n) => (n < 1024 ? n + ' o' : n < 1024 * 1024 ? (n / 1024).toFixed(n < 10240 ? 1 : 0).replace('.', ',') + ' Ko' : (n / 1048576).toFixed(1).replace('.', ',') + ' Mo');
+  const fmtSize = (n) => (n < 1024 ? n + ' o' : n < 1024 * 1024 ? (n / 1024).toFixed(n < 10240 ? 1 : 0).replace('.', ',') + ' Ko' : n < 1073741824 ? (n / 1048576).toFixed(1).replace('.', ',') + ' Mo' : (n / 1073741824).toFixed(1).replace('.', ',') + ' Go');
   const isHidden = (path) => path.split('/').some((seg) => seg.startsWith('.') || IGNORED_DIRS.has(seg));
   const extOf = (name) => { const m = /\.([^./]+)$/.exec(name); return m ? m[1].toLowerCase() : ''; };
   const baseTitle = (name) => name.replace(/\.[^./]+$/, '') || name;
@@ -85,6 +85,45 @@
     if (!projects.length && !feedback.length) return null;
     return { projects, feedback };
   }
+  // ---------- Documents Word / OpenDocument : extraction du texte (zip lu sans bibliothèque) ----------
+  async function unzipEntry(file, wanted) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('Navigateur trop ancien pour lire ce document');
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const dv = new DataView(buf.buffer);
+    let eocd = -1;
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('Document illisible (archive non reconnue)');
+    const count = dv.getUint16(eocd + 10, true); let off = dv.getUint32(eocd + 16, true);
+    const dec = new TextDecoder();
+    for (let n = 0; n < count && off + 46 <= buf.length; n++) {
+      if (dv.getUint32(off, true) !== 0x02014b50) break;
+      const method = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true), usize = dv.getUint32(off + 24, true);
+      const nl = dv.getUint16(off + 28, true), xl = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true), loc = dv.getUint32(off + 42, true);
+      const name = dec.decode(buf.subarray(off + 46, off + 46 + nl));
+      off += 46 + nl + xl + cl;
+      if (name !== wanted) continue;
+      if (usize > 20 * 1048576) throw new Error('Texte du document trop volumineux');
+      const start = loc + 30 + dv.getUint16(loc + 26, true) + dv.getUint16(loc + 28, true);
+      const data = buf.subarray(start, start + csize);
+      if (method === 0) return dec.decode(data);
+      if (method !== 8) throw new Error('Compression du document non prise en charge');
+      return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    }
+    throw new Error('Document illisible (contenu introuvable)');
+  }
+  const xmlText = (xml, para, extra = []) => {
+    let t = xml.replace(/<w:tab\/>|<text:tab\/>/g, '\t').replace(/<w:br[^>]*\/>|<text:line-break\/>/g, '\n');
+    para.forEach((tag) => { t = t.replace(new RegExp('</' + tag + '>', 'g'), '\n'); });
+    extra.forEach(([a, b]) => { t = t.replace(a, b); });
+    t = t.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d)).replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&amp;/g, '&');
+    return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  };
+  async function docText(file, ext) {
+    if (ext === 'docx') return xmlText(await unzipEntry(file, 'word/document.xml'), ['w:p']);
+    if (ext === 'odt') return xmlText(await unzipEntry(file, 'content.xml'), ['text:p', 'text:h']);
+    return null;
+  }
+
   async function analyze(collected) {
     let items = collected.items, hidden = collected.hidden || 0;
     const visible = items.filter((x) => { if (isHidden(x.path)) { hidden++; return false; } return true; });
@@ -96,6 +135,14 @@
       if (error || !file) { res.skipped.push({ path, reason: error || 'Lecture impossible' }); continue; }
       if (i >= MAX_FILES) { res.skipped.push({ path, reason: `Limite de ${MAX_FILES} fichiers par import` }); continue; }
       const ext = extOf(name);
+      if (ext === 'docx' || ext === 'odt') {
+        if (file.size > MAX_DOC_SIZE) { res.skipped.push({ path, size: file.size, reason: 'Document trop volumineux (plus de 15 Mo)' }); continue; }
+        try { const txt = await docText(file, ext); if (!txt) { res.skipped.push({ path, size: file.size, reason: 'Document sans texte' }); continue; } res.texts.push({ path, name, size: file.size, title: baseTitle(name), content: txt, converted: ext.toUpperCase() }); }
+        catch (e) { console.warn('[Prompt Studio] Lecture du document impossible', path, e); res.skipped.push({ path, size: file.size, reason: e.message || 'Document illisible' }); }
+        continue;
+      }
+      if (ext === 'pdf') { res.skipped.push({ path, size: file.size, reason: 'PDF non lisible ici : copie son texte dans un fichier .txt' }); continue; }
+      if (ext === 'doc') { res.skipped.push({ path, size: file.size, reason: 'Ancien format Word (.doc) : enregistre-le en .docx' }); continue; }
       if (BINARY_EXT.has(ext)) { res.skipped.push({ path, size: file.size, reason: 'Fichier binaire (' + ext.toUpperCase() + ')' }); continue; }
       if (file.size > MAX_SIZE) { res.skipped.push({ path, size: file.size, reason: 'Trop volumineux (plus de 500 Ko)' }); continue; }
       if (file.size === 0) { res.skipped.push({ path, size: 0, reason: 'Fichier vide' }); continue; }
@@ -115,16 +162,18 @@
   }
 
   // ---------- Stockage ----------
-  const usedChars = () => { try { let n = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } return n; } catch (e) { return 0; } };
   // Un prompt importé est stocké deux fois : texte courant + version initiale
   const promptCost = (t) => JSON.stringify(t.content).length * 2 + JSON.stringify(t.title).length + (t.tag || '').length + 260;
 
   // ---------- Aperçu ----------
-  function preview(res) {
+  function preview(res, si) {
     const st = PS.state;
-    if (!res.total && !res.hidden) return PS.toast('Aucun fichier trouvé.', 'info');
+    if (!res.total) {
+      return PS.modal({ title: 'Aucun fichier à importer', body: `<div class="notice warn">${icon('alert')}<p>${res.hidden ? `Le dossier ne contient que des fichiers cachés ou ignorés (${res.hidden} : .git, .DS_Store, node_modules…).` : 'Le navigateur n’a transmis aucun fichier : le dossier choisi est peut-être vide, ou ne contient que des sous-dossiers vides.'}</p></div>
+        <p class="small" style="margin-top:12px">Choisis un dossier qui contient des fichiers texte (.md, .txt, .docx…), ou utilise « Des fichiers… » pour les sélectionner un par un.</p>`, foot: '<button class="btn" type="button" data-close>Fermer</button>' });
+    }
     if (!res.texts.length && !res.exports.length) {
-      return PS.modal({ title: 'Rien à importer', body: `<p>Aucun fichier utilisable n’a été trouvé.</p>${skippedHtml(res, true)}`, foot: '<button class="btn" type="button" data-close>Fermer</button>' });
+      return PS.modal({ title: 'Rien à importer', body: `<div class="notice warn">${icon('alert')}<p>Aucun fichier lisible : Prompt Studio importe le texte (.md, .txt, .docx, .odt, code, JSON…). Les images, PDF et archives ne peuvent pas devenir des prompts.</p></div>${skippedHtml(res, true)}`, foot: '<button class="btn" type="button" data-close>Fermer</button>' });
     }
     const exProjects = res.exports.flatMap((e) => e.projects.map((p) => ({ p, from: e.path })));
     const exFeedback = res.exports.flatMap((e) => e.feedback);
@@ -139,7 +188,7 @@
           <div class="field" id="impExWrap" hidden><label class="lbl" for="impProj">Ajouter dans</label><select id="impProj">${st.projects.map((p) => `<option value="${p.id}">${esc(p.name)} (${p.prompts.length} prompt${p.prompts.length > 1 ? 's' : ''})</option>`).join('')}</select></div>
           <div class="row" style="margin-bottom:6px"><b id="impCount"></b><span class="spacer"></span><button class="btn sm ghost" type="button" id="impAll">Tout cocher</button><button class="btn sm ghost" type="button" id="impNone">Tout décocher</button></div>
           <p class="tiny muted" style="margin:0 0 8px">Un prompt par fichier. Titre = nom du fichier ; le sous-dossier devient une étiquette.</p>
-          <ul class="imp-list" id="impList">${res.texts.map((t, i) => `<li><label><input type="checkbox" data-imp="${i}" checked><span class="imp-name"><b>${esc(t.title)}</b><span>${esc(t.path)}</span></span>${t.tag ? `<span class="tag">${icon('tag', 'sm')}${esc(t.tag)}</span>` : ''}<span class="imp-size">${fmtSize(t.size)}</span></label></li>`).join('')}</ul>
+          <ul class="imp-list" id="impList">${res.texts.map((t, i) => `<li><label><input type="checkbox" data-imp="${i}" checked><span class="imp-name"><b>${esc(t.title)}</b><span>${esc(t.path)}</span></span>${t.converted ? `<span class="tag accent" title="Texte extrait du document">${t.converted} → texte</span>` : ''}${t.tag ? `<span class="tag">${icon('tag', 'sm')}${esc(t.tag)}</span>` : ''}<span class="imp-size">${fmtSize(t.size)}</span></label></li>`).join('')}</ul>
         </section>` : ''}
         ${exProjects.length || exFeedback.length ? `<section class="imp-sec">
           <h3>${icon('folder', 'sm')} Sauvegardes Prompt Studio</h3>
@@ -153,8 +202,9 @@
           <div id="impStoreWarn"></div></section>`,
       foot: `<button class="btn ghost" type="button" data-close>Annuler</button><button class="btn primary" type="button" id="impGo">${icon('upload', 'sm')}Importer</button>`,
       onMount: (c, close) => {
-        let dest = 'new';
-        const used = usedChars();
+        let dest = 'new', warned = false;
+        const used = si.used, quota = si.quota, isIdb = si.backend === 'idb';
+        const avail = Math.max(0, quota - used);
         const upd = () => {
           const tSel = $$('[data-imp]', c).filter((x) => x.checked).map((x) => res.texts[+x.dataset.imp]);
           const eSel = $$('[data-exp]', c).filter((x) => x.checked).map((x) => exProjects[+x.dataset.exp].p);
@@ -162,13 +212,20 @@
           const add = tSel.reduce((a, t) => a + promptCost(t), 0) + eSel.reduce((a, p) => a + JSON.stringify(p).length, 0) + JSON.stringify(fb).length + (tSel.length && dest === 'new' ? 300 : 0);
           const after = used + add;
           if ($('#impCount', c)) $('#impCount', c).textContent = `${tSel.length} fichier${tSel.length > 1 ? 's' : ''} sur ${res.texts.length} à importer`;
-          $('#impStoreTxt', c).textContent = `≈ ${fmtSize(after)} sur ≈ 5 Mo après import (+${fmtSize(add)})`;
-          $('#impMeterUsed', c).style.width = Math.min(100, (used / LIMIT) * 100) + '%';
-          $('#impMeterNew', c).style.width = Math.max(0, Math.min(100 - (used / LIMIT) * 100, (add / LIMIT) * 100)) + '%';
-          const over = after > LIMIT, near = after > LIMIT * 0.8;
-          $('#impStoreWarn', c).innerHTML = over ? `<div class="notice warn" style="margin-top:10px">${icon('alert')}<p><b>Trop volumineux pour le stockage du navigateur.</b> Décoche des fichiers, ou exporte puis supprime d’anciens projets.</p></div>`
+          const cap = isIdb ? avail * 0.9 : quota - used;
+          $('#impStoreTxt', c).textContent = isIdb ? `+${fmtSize(add)} · espace disponible ≈ ${fmtSize(avail)}` : `≈ ${fmtSize(after)} sur ≈ ${fmtSize(quota)} après import (+${fmtSize(add)})`;
+          const scale = isIdb ? Math.max(add + used, Math.min(quota, Math.max((add + used) * 4, 50 * 1048576))) : quota;
+          $('#impMeterUsed', c).style.width = Math.min(100, (used / scale) * 100) + '%';
+          $('#impMeterNew', c).style.width = Math.max(0, Math.min(100 - (used / scale) * 100, (add / scale) * 100)) + '%';
+          const over = add > cap, near = !isIdb && after > quota * 0.8;
+          let excess = add - cap;
+          const biggest = over ? tSel.slice().sort((a, b) => promptCost(b) - promptCost(a)).filter((t) => (excess > 0 ? ((excess -= promptCost(t)), true) : false)) : [];
+          $('#impStoreWarn', c).innerHTML = over ? `<div class="notice warn" style="margin-top:10px">${icon('alert')}<p><b>Pas assez de place dans le stockage du navigateur.</b> Il manque environ ${fmtSize(add - cap)}. ${biggest.length ? `Décoche par exemple les fichiers les plus gros : ${biggest.slice(0, 4).map((t) => '« ' + esc(t.title) + ' » (' + fmtSize(t.size) + ')').join(', ')}${biggest.length > 4 ? '…' : '.'}` : 'Exporte puis supprime d’anciens projets.'}</p></div>${biggest.length ? `<button class="btn sm" type="button" id="impTrim" style="margin-top:8px">Décocher les ${biggest.length} plus gros fichiers</button>` : ''}`
             : near ? `<div class="notice warn" style="margin-top:10px">${icon('alert')}<p><b>Proche de la limite du stockage (environ 5 Mo).</b> L’import devrait passer, mais pense à exporter tes projets régulièrement.</p></div>`
-            : `<p class="tiny muted" style="margin:8px 0 0">Estimation. Chaque prompt importé est gardé deux fois (texte actuel + première version de l’historique).</p>`;
+            : `<p class="tiny muted" style="margin:8px 0 0">Estimation. Chaque prompt importé est gardé deux fois (texte actuel + première version de l’historique).${isIdb ? '' : ' Ce navigateur utilise le stockage de secours (environ 5 Mo).'}</p>`;
+          if (over && !warned) { warned = true; requestAnimationFrame(() => { const w = $('#impStoreWarn', c); if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' }); }); }
+          const trim = $('#impTrim', c);
+          if (trim) trim.onclick = () => { const set = new Set(biggest); $$('[data-imp]', c).forEach((x) => { if (set.has(res.texts[+x.dataset.imp])) x.checked = false; }); upd(); };
           const n = tSel.length + eSel.length + fb.length;
           const go = $('#impGo', c); go.disabled = over || n === 0;
           go.innerHTML = `${icon('upload', 'sm')}Importer${tSel.length + eSel.length ? ` (${tSel.length ? tSel.length + ' prompt' + (tSel.length > 1 ? 's' : '') : ''}${tSel.length && eSel.length ? ' + ' : ''}${eSel.length ? eSel.length + ' projet' + (eSel.length > 1 ? 's' : '') : ''})` : ''}`;
@@ -183,8 +240,8 @@
           const sel = upd();
           const name = ($('#impName', c) && $('#impName', c).value.trim()) || defName;
           const target = dest === 'existing' ? $('#impProj', c).value : null;
-          close();
-          run(res, sel, { name, target });
+          const go = $('#impGo', c); go.disabled = true; go.textContent = 'Import en cours…';
+          run(res, sel, { name, target }).then((ok) => { if (!c.isConnected || !$('#impStoreTxt', c)) return; if (ok) close(); else { go.disabled = false; upd(); } });
         };
         upd();
       } });
@@ -196,7 +253,11 @@
   }
 
   // ---------- Import ----------
-  function run(res, { tSel, eSel, fb }, { name, target }) {
+  async function run(res, sel, opts) {
+    try { return await runImport(res, sel, opts); }
+    catch (e) { showError('L’import n’a pas abouti', e); return false; }
+  }
+  async function runImport(res, { tSel, eSel, fb }, { name, target }) {
     const st = PS.state;
     const snapshot = JSON.stringify(st);
     const now = Date.now();
@@ -218,36 +279,79 @@
       if (target) { st.projects = [p].concat(st.projects.filter((x) => x !== p)); }
       openId = p.id; nPrompts += prompts.length;
     }
-    if (!PS.save()) {
-      PS.state = JSON.parse(snapshot); PS.save();
-      PS.toast('Import annulé : le stockage du navigateur est plein. Rien n’a été modifié.', 'alert', 5000);
-      return;
+    if (!(await PS.save())) {
+      const err = PS.lastSaveError;
+      PS.state = JSON.parse(snapshot); await PS.save();
+      showError('Import annulé : rien n’a été modifié', err || new Error('Enregistrement refusé par le navigateur'));
+      return false;
     }
+    $('#modal').close();
     const ignored = res.skipped.length;
     PS.toast(`${nPrompts} prompt${nPrompts > 1 ? 's' : ''} importé${nPrompts > 1 ? 's' : ''}, ${ignored} ignoré${ignored > 1 ? 's' : ''}${eSel.length ? ` (dont ${eSel.length} projet${eSel.length > 1 ? 's' : ''} sauvegardé${eSel.length > 1 ? 's' : ''})` : ''}`, 'check', 4000);
     if (openId) { const h = '#/projets/' + openId; if (location.hash === h) PS.route(); else location.hash = h; }
     else PS.route();
+    return true;
+  }
+  // Message d'erreur visible avec la raison, détails dans la console
+  function showError(title, e) {
+    console.error('[Prompt Studio] ' + title, e);
+    const reason = e ? (e.name && e.name !== 'Error' ? e.name + ' : ' : '') + (e.message || String(e)) : 'raison inconnue';
+    const full = e && (e.name === 'QuotaExceededError' || /quota|plein/i.test(e.message || ''));
+    PS.modal({ title, body: `<div class="notice warn">${icon('alert')}<p><b>Raison :</b> ${esc(reason)}</p></div>
+      <p class="small" style="margin-top:12px">${full ? 'Le stockage du navigateur est plein : décoche des fichiers, ou exporte puis supprime d’anciens projets.' : 'Réessaie, ou importe moins de fichiers à la fois. Si le problème continue, copie le détail ci-dessous et envoie-le.'}</p>
+      <pre class="prompt-box tiny" id="errDetail" tabindex="0" aria-label="Détail technique" style="max-height:160px">${esc(`${title}
+${reason}
+Navigateur : ${navigator.userAgent}
+Stockage : ${PS.backend}
+${(e && e.stack) || ''}`.slice(0, 2000))}</pre>`,
+      foot: `<button class="btn" type="button" id="errCopy">${icon('copy', 'sm')}Copier le détail</button><button class="btn primary" type="button" data-close>Fermer</button>`,
+      onMount: (c) => { $('#errCopy', c).onclick = () => PS.copyPrompt($('#errDetail', c).textContent, 'Détail copié'); } });
   }
 
   // ---------- Points d'entrée ----------
   let busy = false;
-  async function handle(collectPromise) {
+  async function handle(collectPromise, source) {
     if (busy) return; busy = true;
     try {
       const collected = await collectPromise;
-      if (!collected || (!collected.items.length && !collected.hidden)) return;
-      if (collected.items.length > 30) PS.toast('Analyse des fichiers…', 'info', 1500);
-      preview(await analyze(collected));
-    } catch (e) { console.warn(e); PS.toast('Impossible de lire ces fichiers.', 'alert'); }
+      const n = collected ? collected.items.length : 0;
+      console.info(`[Prompt Studio] Import (${source || '?'}) : ${n} fichier(s) reçu(s)` + (collected && collected.hidden ? `, ${collected.hidden} caché(s)` : ''));
+      if (n > 30) PS.toast(`Analyse de ${n} fichiers…`, 'info', 1800);
+      const res = await analyze(collected || { items: [], hidden: 0 });
+      const si = await PS.storageInfo();
+      preview(res, si);
+    } catch (e) { showError('Impossible de lire ces fichiers', e); }
     finally { busy = false; }
   }
+  // Champ fichier persistant, hors écran (pas display:none : Safari et certains navigateurs l'ignorent)
+  const inputs = {};
+  function getInput(dir) {
+    const key = dir ? 'dir' : 'files';
+    let i = inputs[key];
+    if (!i || !document.body.contains(i)) {
+      i = document.createElement('input');
+      i.type = 'file'; i.multiple = true; i.className = 'sr-file'; i.tabIndex = -1; i.id = 'psImport-' + key;
+      i.setAttribute('aria-hidden', 'true');
+      if (dir) { i.webkitdirectory = true; i.setAttribute('webkitdirectory', ''); i.setAttribute('directory', ''); }
+      let lastAt = 0;
+      const onPick = (ev) => {
+        const files = Array.from(i.files || []); // lire avant toute remise à zéro
+        if (!files.length && Date.now() - lastAt < 1500) return; // « input » + « change » pour la même sélection
+        lastAt = Date.now();
+        try { i.value = ''; } catch (e) {}
+        handle(Promise.resolve({ items: fromFileList(files), hidden: 0 }), (dir ? 'dossier' : 'fichiers') + '/' + ev.type);
+      };
+      i.addEventListener('change', onPick);
+      i.addEventListener('input', onPick);
+      document.body.appendChild(i);
+      inputs[key] = i;
+    }
+    try { i.value = ''; } catch (e) {}
+    return i;
+  }
   function pick(dir) {
-    const i = document.createElement('input'); i.type = 'file'; i.multiple = true;
-    if (dir) { i.webkitdirectory = true; i.setAttribute('webkitdirectory', ''); }
-    i.style.display = 'none'; document.body.appendChild(i);
-    i.addEventListener('change', () => { const list = i.files; handle(Promise.resolve({ items: fromFileList(list), hidden: 0 })); i.remove(); }, { once: true });
-    i.addEventListener('cancel', () => i.remove(), { once: true });
-    i.click();
+    try { const i = getInput(dir); i.click(); }
+    catch (e) { showError('Impossible d’ouvrir le sélecteur de fichiers', e); }
   }
   function bindDrop(root) {
     const ov = document.createElement('div');
@@ -259,13 +363,14 @@
     root.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; ov.hidden = false; });
     root.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
     root.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) ov.hidden = true; });
-    root.addEventListener('drop', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; ov.hidden = true; handle(fromDataTransfer(e.dataTransfer)); });
+    root.addEventListener('drop', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth = 0; ov.hidden = true; handle(fromDataTransfer(e.dataTransfer), 'glisser-déposer'); });
   }
 
   PS.importer = {
     supportsDir, isIOS, isAndroid,
     noDirNote: isIOS ? 'Sur iPhone et iPad, Safari ne permet pas de choisir un dossier entier. Utilise « Des fichiers… » puis, dans l’app Fichiers, touche « Sélectionner » pour en choisir plusieurs.'
       : 'Ce navigateur ne permet pas de choisir un dossier entier. Utilise « Des fichiers… » et sélectionne plusieurs fichiers à la fois.',
+    pickHint: 'Le navigateur peut demander de confirmer (« Importer N fichiers ? ») : les fichiers restent sur ton appareil, rien n’est envoyé sur Internet.',
     dropHint: coarse ? '' : 'Astuce : tu peux aussi glisser-déposer un dossier ou plusieurs fichiers sur cette page.',
     pickFiles: () => pick(false), pickDir: () => pick(true), bindDrop,
     // exposés pour les tests

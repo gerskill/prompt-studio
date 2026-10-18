@@ -13,8 +13,9 @@
     root.innerHTML = `
       <div class="page-head"><div><span class="eyebrow">${icon('folder', 'sm')} Projets</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Tes projets</h1><p>Un endroit central pour les prompts d’un même projet, avec leurs versions, leurs notes et leurs étiquettes.</p></div>
         <div class="btn-row"><details class="menu" id="pImpMenu"><summary class="btn" id="pImport">${icon('upload', 'sm')}Importer</summary><div class="menu-panel menu-right" role="menu">
-          <button type="button" role="menuitem" id="pImpFiles"><b>Des fichiers…</b><span>Un ou plusieurs fichiers : sauvegardes JSON, textes, Markdown, code…</span></button>
+          <button type="button" role="menuitem" id="pImpFiles"><b>Des fichiers…</b><span>Un ou plusieurs fichiers : sauvegardes JSON, textes, Markdown, Word, code…</span></button>
           ${PS.importer.supportsDir ? `<button type="button" role="menuitem" id="pImpDir"><b>Un dossier…</b><span>Tout un dossier devient un projet : un prompt par fichier.</span></button>` : `<p class="tiny muted" style="margin:4px 10px 8px">${esc(PS.importer.noDirNote)}</p>`}
+          <p class="tiny muted" style="margin:4px 10px 8px">${esc(PS.importer.pickHint)}</p>
         </div></details><a class="btn" href="#/demarrer">${icon('rocket', 'sm')}Démarrer avec un pack</a><button class="btn primary" type="button" id="pNew">${icon('plus', 'sm')}Nouveau projet</button></div></div>
       <div id="pBody"></div>`;
     function render() {
@@ -316,7 +317,6 @@
   // ================= RÉGLAGES =================
   V.reglages = (root) => {
     const st = PS.state;
-    const used = (() => { try { return new Blob([localStorage.getItem(PS.KEY) || '']).size; } catch (e) { return 0; } })();
     const n = st.projects.length, np = st.projects.reduce((a, p) => a + p.prompts.length, 0);
     const MODELS = ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'];
     root.innerHTML = `
@@ -326,7 +326,7 @@
           <div class="card"><h3>Apparence</h3><p class="small muted">Le thème « Système » suit le réglage de ton appareil.</p>
             <div class="seg" role="group" aria-label="Thème">${[['system', 'Système'], ['light', 'Clair'], ['dark', 'Sombre']].map(([v, l]) => `<button type="button" data-theme-set="${v}" aria-pressed="${st.settings.theme === v}">${l}</button>`).join('')}</div></div>
           <div class="card"><h3>Prompts</h3>${PS.toggleHtml('set', 'french', 'Ajouter « Réponds en français » par défaut', 'Utilisé par l’assistant guidé pour les nouveaux prompts.', st.settings.french !== false)}</div>
-          <div class="card"><h3>Mes données</h3><p class="small muted">${n} projet${n > 1 ? 's' : ''}, ${np} prompt${np > 1 ? 's' : ''}, ${st.feedback.length} avis — ${(used / 1024).toFixed(1)} Ko utilisés dans ce navigateur. Les navigateurs limitent ce stockage (souvent autour de 5 Mo) : exporte régulièrement.</p>
+          <div class="card"><h3>Mes données</h3><p class="small muted">${n} projet${n > 1 ? 's' : ''}, ${np} prompt${np > 1 ? 's' : ''}, ${st.feedback.length} avis. <span id="sStore">Calcul de l’espace utilisé…</span></p>
             <div class="btn-row"><button class="btn" type="button" id="sExp">${icon('download', 'sm')}Tout exporter (JSON)</button><button class="btn" type="button" id="sImp">${icon('upload', 'sm')}Importer</button></div></div>
           <div class="card danger-zone"><h3>Tout supprimer</h3><p class="small muted">Efface projets, avis, brouillons et clé API de ce navigateur. Impossible à annuler.</p><button class="btn danger" type="button" id="sDel">${icon('trash', 'sm')}Supprimer toutes mes données</button></div>
         </div>
@@ -342,6 +342,10 @@
       </div>`;
     root.addEventListener('click', (e) => { const b = e.target.closest('[data-theme-set]'); if (b) { st.settings.theme = b.dataset.themeSet; PS.save(); PS.applyTheme(); $$('[data-theme-set]', root).forEach((x) => x.setAttribute('aria-pressed', x === b)); } });
     root.addEventListener('change', (e) => { if (e.target.dataset.set) { st.settings[e.target.dataset.set] = e.target.checked; e.target.closest('.toggle').classList.toggle('on', e.target.checked); PS.save(); } });
+    PS.storageInfo().then((si) => { const el = $('#sStore', root); if (!el) return;
+      const mb = (x) => x < 1048576 ? Math.max(1, Math.round(x / 1024)) + ' Ko' : (x / 1048576).toFixed(1).replace('.', ',') + ' Mo';
+      el.textContent = si.backend === 'idb' ? `Stockage : base de données du navigateur (IndexedDB), ${mb(si.data)} de données. Espace disponible pour le site : environ ${si.quota > 1073741824 ? (si.quota / 1073741824).toFixed(1).replace('.', ',') + ' Go' : mb(si.quota)}. Exporte quand même régulièrement : tes données ne sont que sur cet appareil.`
+        : `Stockage de secours (localStorage, environ 5 Mo) : ${mb(si.used)} utilisés. IndexedDB n’est pas disponible dans ce navigateur${PS.initError ? ' (' + PS.initError.message + ')' : ''}. Exporte régulièrement.`; });
     $('#sShow', root).onclick = () => { const i = $('#sKey', root); i.type = i.type === 'password' ? 'text' : 'password'; };
     $('#sKeySave', root).onclick = () => { const k = $('#sKey', root).value.trim(); st.settings.model = $('#sModel', root).value.trim() || 'claude-sonnet-5-5'; PS.setKey(k); PS.save(); PS.toast(k ? 'Clé et modèle enregistrés' : 'Modèle enregistré'); };
     $('#sKeyDel', root).onclick = () => { PS.setKey(''); $('#sKey', root).value = ''; PS.toast('Clé supprimée', 'trash'); };
@@ -349,8 +353,7 @@
     $('#sImp', root).onclick = () => PS.importer.pickFiles();
     $('#sDel', root).onclick = async () => {
       if (await PS.confirmDialog({ title: 'Supprimer toutes les données ?', text: 'Projets, prompts, versions, avis, brouillons et clé API seront effacés de ce navigateur.', ok: 'Tout supprimer', danger: true, typed: 'SUPPRIMER' })) {
-        try { localStorage.removeItem(PS.KEY); localStorage.removeItem(PS.KEY_API); } catch (e) {}
-        PS.load(); PS.save(); PS.applyTheme(); PS.toast('Toutes les données ont été supprimées', 'trash'); location.hash = '#/accueil';
+        await PS.resetAll(); PS.applyTheme(); PS.toast('Toutes les données ont été supprimées', 'trash'); location.hash = '#/accueil';
       }
     };
   };

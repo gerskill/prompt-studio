@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const { $, $$, icon } = PS;
-  PS.load();
+  PS.load(); // état provisoire (synchrone) en attendant IndexedDB
 
   const TITLES = { accueil: 'Accueil', generateur: 'Assistant guidé', editeur: 'Éditeur et vérification', modeles: 'Modèles', projets: 'Projets', demarrer: 'Démarrer un projet', avis: 'Avis', reglages: 'Réglages' };
   const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -34,7 +34,8 @@
   };
   window.addEventListener('hashchange', PS.route);
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
+    await PS.init();
     PS.applyTheme();
     $('#themeBtn').addEventListener('click', () => {
       const cur = document.documentElement.dataset.theme;

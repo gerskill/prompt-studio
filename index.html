@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="styles.css">
 <script>
-(function(){try{var s=JSON.parse(localStorage.getItem('ps.v1')||'{}');var t=(s.settings&&s.settings.theme)||'system';if(t==='system')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();
+(function(){try{var t=localStorage.getItem('ps.theme');if(!t){var s=JSON.parse(localStorage.getItem('ps.v1')||'{}');t=(s.settings&&s.settings.theme)||'system';}if(t==='system')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme='light';}})();
 </script>
 </head>
 <body>

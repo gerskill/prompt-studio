@@ -415,7 +415,7 @@ summary.btn::-webkit-details-marker{display:none}
 .imp-name span{display:block;font-size:.78rem;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .imp-size{font-size:.78rem;color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
 .imp-list .tag{flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width:520px){.imp-list .tag{display:none}}
+@media (max-width:520px){.imp-list .tag{display:none}.imp-list .tag.accent{display:inline-flex}}
 .meter{display:flex;height:10px;border-radius:6px;background:var(--surface-3);overflow:hidden}
 .meter i{display:block;height:100%;background:var(--ink-3);transition:width .3s var(--ease)}
 .meter i.new{background:var(--accent)}
@@ -424,3 +424,4 @@ summary.btn::-webkit-details-marker{display:none}
 .drop-card{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:40px 48px;border:2px dashed var(--accent);border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--shadow-3);color:var(--ink);max-width:min(460px,calc(100vw - 40px))}
 .drop-card .ic{color:var(--accent);width:36px;height:36px}
 .drop-card span{color:var(--ink-2);font-size:.92rem}
+.sr-file{position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0;pointer-events:none}

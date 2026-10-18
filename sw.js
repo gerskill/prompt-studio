@@ -1,5 +1,5 @@
 /* Prompt Studio — service worker (hors ligne) */
-const CACHE = 'prompt-studio-v2';
+const CACHE = 'prompt-studio-v3';
 const ASSETS = ['./', './index.html', './styles.css', './js/templates.js', './js/core.js', './js/ui.js', './js/views.js', './js/import.js', './js/views2.js', './js/app.js', './manifest.webmanifest', './icons/icon.svg', './icons/favicon.svg', './icons/favicon-32.png', './icons/apple-touch-icon.png', './icons/icon-maskable-512.png', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
