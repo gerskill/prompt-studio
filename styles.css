@@ -391,3 +391,31 @@ details.more summary{cursor:pointer;font-weight:620;padding:6px 0}
 .menu-panel button span{display:block;font-size:.8rem;color:var(--ink-3)}
 .chip.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 @media (max-width:860px){.hide-sm{display:none}.page-head{align-items:center}}
+/* --- Import de fichiers / dossiers --- */
+.menu-panel.menu-right{left:auto;right:0}
+@media (max-width:860px){.menu-panel.menu-right{left:0;right:auto;min-width:min(300px,calc(100vw - 40px))}}
+summary.btn{list-style:none}
+summary.btn::-webkit-details-marker{display:none}
+.imp-sec{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.imp-sec:first-of-type{margin-top:10px}
+.imp-sec h3{display:flex;align-items:center;gap:8px;font-size:1rem;margin-bottom:10px}
+.imp-list{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2)}
+.imp-list li{border-top:1px solid var(--line);padding:0}
+.imp-list li:first-child{border-top:0}
+.imp-list label,.imp-list.skipped li{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;min-height:44px}
+.imp-list.skipped li{cursor:default}
+.imp-list input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.imp-name{flex:1;min-width:0}
+.imp-name b{display:block;font-size:.9rem;font-weight:620;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-name span{display:block;font-size:.78rem;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-size{font-size:.78rem;color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.imp-list .tag{flex:none;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:520px){.imp-list .tag{display:none}}
+.meter{display:flex;height:10px;border-radius:6px;background:var(--surface-3);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink-3);transition:width .3s var(--ease)}
+.meter i.new{background:var(--accent)}
+.drop-overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(6px);pointer-events:none;animation:viewIn .2s var(--ease)}
+.drop-overlay[hidden]{display:none}
+.drop-card{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:40px 48px;border:2px dashed var(--accent);border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--shadow-3);color:var(--ink);max-width:min(460px,calc(100vw - 40px))}
+.drop-card .ic{color:var(--accent);width:36px;height:36px}
+.drop-card span{color:var(--ink-2);font-size:.92rem}

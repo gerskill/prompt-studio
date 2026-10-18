@@ -12,12 +12,15 @@
     let q = '', tag = '';
     root.innerHTML = `
       <div class="page-head"><div><span class="eyebrow">${icon('folder', 'sm')} Projets</span><h1 style="font-size:clamp(1.8rem,4vw,2.6rem)">Tes projets</h1><p>Un endroit central pour les prompts d’un même projet, avec leurs versions, leurs notes et leurs étiquettes.</p></div>
-        <div class="btn-row"><button class="btn" type="button" id="pImport">${icon('upload', 'sm')}Importer</button><a class="btn" href="#/demarrer">${icon('rocket', 'sm')}Démarrer avec un pack</a><button class="btn primary" type="button" id="pNew">${icon('plus', 'sm')}Nouveau projet</button></div></div>
+        <div class="btn-row"><details class="menu" id="pImpMenu"><summary class="btn" id="pImport">${icon('upload', 'sm')}Importer</summary><div class="menu-panel menu-right" role="menu">
+          <button type="button" role="menuitem" id="pImpFiles"><b>Des fichiers…</b><span>Un ou plusieurs fichiers : sauvegardes JSON, textes, Markdown, code…</span></button>
+          ${PS.importer.supportsDir ? `<button type="button" role="menuitem" id="pImpDir"><b>Un dossier…</b><span>Tout un dossier devient un projet : un prompt par fichier.</span></button>` : `<p class="tiny muted" style="margin:4px 10px 8px">${esc(PS.importer.noDirNote)}</p>`}
+        </div></details><a class="btn" href="#/demarrer">${icon('rocket', 'sm')}Démarrer avec un pack</a><button class="btn primary" type="button" id="pNew">${icon('plus', 'sm')}Nouveau projet</button></div></div>
       <div id="pBody"></div>`;
     function render() {
       const all = st.projects;
       if (!all.length) {
-        $('#pBody', root).innerHTML = `<div class="empty"><span class="card-icon">${icon('folder', 'lg')}</span><h3>Aucun projet pour l’instant</h3><p>Crée un projet vide, ou laisse le site te préparer un pack de 4 prompts pour bien démarrer.</p><div class="btn-row" style="justify-content:center"><button class="btn primary" type="button" data-new>${icon('plus', 'sm')}Nouveau projet</button><a class="btn" href="#/demarrer">${icon('rocket', 'sm')}Démarrer un projet</a></div></div>`;
+        $('#pBody', root).innerHTML = `<div class="empty"><span class="card-icon">${icon('folder', 'lg')}</span><h3>Aucun projet pour l’instant</h3><p>Crée un projet vide, ou laisse le site te préparer un pack de 4 prompts pour bien démarrer.</p><div class="btn-row" style="justify-content:center"><button class="btn primary" type="button" data-new>${icon('plus', 'sm')}Nouveau projet</button><a class="btn" href="#/demarrer">${icon('rocket', 'sm')}Démarrer un projet</a><button class="btn" type="button" data-impfiles>${icon('upload', 'sm')}Importer des fichiers</button></div>${PS.importer.dropHint ? `<p class="tiny muted" style="margin:14px 0 0">${PS.importer.dropHint}</p>` : ''}</div>`;
         return;
       }
       const tags = Array.from(new Set(all.flatMap((p) => p.tags.concat(p.prompts.flatMap((x) => x.tags))))).sort();
@@ -27,15 +30,21 @@
       }).sort((a, b) => b.updatedAt - a.updatedAt);
       $('#pBody', root).innerHTML = `<div class="row" style="margin-bottom:12px"><div class="search" style="flex:1;min-width:220px">${icon('search')}<label class="sr" for="pQ">Rechercher</label><input id="pQ" type="search" placeholder="Rechercher dans les projets et les prompts" value="${esc(q)}"></div></div>
         ${tags.length ? `<div class="cat-scroll" role="group" aria-label="Étiquettes"><button class="chip" type="button" data-tag="" aria-pressed="${!tag}">Toutes</button>${tags.map((t) => `<button class="chip" type="button" data-tag="${esc(t)}" aria-pressed="${tag === t}">${icon('tag', 'sm')}${esc(t)}</button>`).join('')}</div>` : ''}
-        ${list.length ? `<div class="proj-grid">${list.map(PS.projCard).join('')}</div>` : `<div class="empty"><h3>Aucun résultat</h3><p>Aucun projet ne correspond à ta recherche.</p></div>`}`;
+        ${list.length ? `<div class="proj-grid">${list.map(PS.projCard).join('')}</div>` : `<div class="empty"><h3>Aucun résultat</h3><p>Aucun projet ne correspond à ta recherche.</p></div>`}
+        ${PS.importer.dropHint ? `<p class="tiny muted" style="margin:18px 0 0;text-align:center">${PS.importer.dropHint}</p>` : ''}`;
       const qi = $('#pQ', root); qi.addEventListener('input', (e) => { q = e.target.value; const pos = qi.selectionStart; render(); const n = $('#pQ', root); n.focus(); n.setSelectionRange(pos, pos); });
     }
     root.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tag]'); if (t) { tag = t.dataset.tag; render(); return; }
       if (e.target.closest('[data-new]')) newProjectDialog();
+      if (e.target.closest('[data-impfiles]')) PS.importer.pickFiles();
     });
     $('#pNew', root).onclick = newProjectDialog;
-    $('#pImport', root).onclick = () => importData(() => render());
+    const menu = $('#pImpMenu', root);
+    $('#pImpFiles', root).onclick = () => { menu.open = false; PS.importer.pickFiles(); };
+    if ($('#pImpDir', root)) $('#pImpDir', root).onclick = () => { menu.open = false; PS.importer.pickDir(); };
+    document.addEventListener('click', function closeImp(e) { if (!document.body.contains(menu)) return document.removeEventListener('click', closeImp); if (menu.open && !menu.contains(e.target)) menu.open = false; });
+    PS.importer.bindDrop(root);
     render();
   };
 
@@ -64,26 +73,7 @@
       prompts: p.prompts.filter((x) => x && typeof x.content === 'string').map((x) => ({ id: x.id || PS.uid(), title: String(x.title || 'Prompt'), tags: Array.isArray(x.tags) ? x.tags.map(String) : [], content: x.content, createdAt: +x.createdAt || now, updatedAt: +x.updatedAt || now,
         versions: Array.isArray(x.versions) ? x.versions.filter((v) => v && typeof v.content === 'string').map((v) => ({ id: v.id || PS.uid(), content: v.content, note: String(v.note || ''), at: +v.at || now })) : [] })) };
   }
-  async function importData(done) {
-    const f = await PS.pickFile(); if (!f) return;
-    let data; try { data = JSON.parse(f.text); } catch (e) { return PS.toast('Fichier illisible : ce n’est pas un JSON valide.', 'alert'); }
-    let projects = [];
-    if (data && data.app === 'prompt-studio' && data.project) projects = [data.project];
-    else if (data && Array.isArray(data.projects)) projects = data.projects;
-    else if (validProject(data)) projects = [data];
-    projects = projects.filter(validProject).map(sanitizeProject);
-    let fb = data && Array.isArray(data.feedback) ? data.feedback.filter((x) => x && typeof x.message === 'string') : [];
-    if (!projects.length && !fb.length) return PS.toast('Aucun projet reconnu dans ce fichier.', 'alert');
-    const ids = new Set(PS.state.projects.map((p) => p.id));
-    projects.forEach((p) => { if (ids.has(p.id)) reId(p); PS.state.projects.unshift(p); });
-    const fbIds = new Set(PS.state.feedback.map((x) => x.id));
-    fb = fb.filter((x) => !fbIds.has(x.id)).map((x) => ({ id: x.id || PS.uid(), rating: Math.max(0, Math.min(5, +x.rating || 0)), category: String(x.category || 'Autre'), message: String(x.message), at: +x.at || Date.now() }));
-    PS.state.feedback.push(...fb);
-    PS.save();
-    PS.toast(`${projects.length} projet${projects.length > 1 ? 's' : ''} importé${projects.length > 1 ? 's' : ''}${fb.length ? `, ${fb.length} avis` : ''}`);
-    if (done) done();
-  }
-  PS.importData = importData;
+  Object.assign(PS, { reId, validProject, sanitizeProject });
   const exportProject = (p) => PS.download(`prompt-studio-${PS.slug(p.name)}.json`, JSON.stringify({ app: 'prompt-studio', version: 1, exportedAt: new Date().toISOString(), project: p }, null, 2));
 
   // ================= PROJET (détail) =================
@@ -356,7 +346,7 @@
     $('#sKeySave', root).onclick = () => { const k = $('#sKey', root).value.trim(); st.settings.model = $('#sModel', root).value.trim() || 'claude-sonnet-5-5'; PS.setKey(k); PS.save(); PS.toast(k ? 'Clé et modèle enregistrés' : 'Modèle enregistré'); };
     $('#sKeyDel', root).onclick = () => { PS.setKey(''); $('#sKey', root).value = ''; PS.toast('Clé supprimée', 'trash'); };
     $('#sExp', root).onclick = () => PS.download(`prompt-studio-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ app: 'prompt-studio', version: 1, exportedAt: new Date().toISOString(), projects: st.projects, feedback: st.feedback, settings: { theme: st.settings.theme, model: st.settings.model, french: st.settings.french } }, null, 2));
-    $('#sImp', root).onclick = () => PS.importData(() => PS.route());
+    $('#sImp', root).onclick = () => PS.importer.pickFiles();
     $('#sDel', root).onclick = async () => {
       if (await PS.confirmDialog({ title: 'Supprimer toutes les données ?', text: 'Projets, prompts, versions, avis, brouillons et clé API seront effacés de ce navigateur.', ok: 'Tout supprimer', danger: true, typed: 'SUPPRIMER' })) {
         try { localStorage.removeItem(PS.KEY); localStorage.removeItem(PS.KEY_API); } catch (e) {}
