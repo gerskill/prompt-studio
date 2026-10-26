@@ -231,7 +231,9 @@
 
   // ---------- Construction du prompt (méthode ASPECCT + blocs V2) ----------
   // Action, Étapes, Persona, Exemples, Contexte, Contraintes, Modèle, puis rappel final de la contrainte clé
-  const TARGETS = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', autre: 'Autre IA' };
+  const TARGETS = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', grokbot: 'Grok Bot', autre: 'Autre IA' };
+  const MD_TARGETS = ['chatgpt', 'grokbot'];
+  const GROKBOT_ACT = 'Tu peux agir : utilise tes outils et ton ordinateur (navigateur, fichiers, terminal, code) pour faire le travail toi-même plutôt que de seulement l’expliquer. Montre-moi le résultat (captures d’écran, liens, extraits) et attends mon accord avant de publier, mettre en ligne, envoyer ou payer quoi que ce soit.';
   const currentTarget = () => (state && state.settings && TARGETS[state.settings.target] ? state.settings.target : 'claude');
   const lowF = (x) => (/^[A-ZÀ-Ý][a-zà-ÿ’']/.test(x) ? x.charAt(0).toLowerCase() + x.slice(1) : x);
   const stripNum = (l) => l.replace(/^(?:\d+[.)]|[-•*])\s*/, '');
@@ -248,7 +250,7 @@
     return S.filter((x) => x && (x.b || x.h)).map((x) => {
       let b = x.b;
       if (target === 'claude' && TAG[x.k] && b) b = `<${TAG[x.k]}>\n${b}\n</${TAG[x.k]}>`;
-      const h = x.h ? (target === 'chatgpt' ? '## ' + x.h : x.h) : '';
+      const h = x.h ? (MD_TARGETS.includes(target) ? '## ' + x.h : x.h) : '';
       return [h, b].filter(Boolean).join('\n');
     }).join('\n\n');
   }
@@ -293,6 +295,7 @@
     if (blocks.includes('verif')) S.push({ k: 'verif', b: BLOCKS.verif.text(w) });
     if (keyPos) S.push({ k: 'rappel', h: 'RAPPEL', b: `${w.rich ? 'Et n’oublie pas : ' + lowF(endDot(stripNum(keyPos))) : endDot(stripNum(keyPos))} C’est important !` });
     if (target === 'chatgpt') S.push({ k: 'start', b: 'Pour commencer : confirme en une phrase ce que tu as compris de la tâche, puis réponds.' });
+    if (target === 'grokbot') S.splice(S.findIndex((x) => x.k === 'rappel') < 0 ? S.length : S.findIndex((x) => x.k === 'rappel'), 0, { k: 'agir', h: 'COMMENT TRAVAILLER', b: GROKBOT_ACT + '\nPour commencer : confirme en une phrase ce que tu as compris de la tâche et ton plan, puis lance-toi.' });
     return S;
   }
   function buildPrompt(w, mode = 'complet', opt = {}) {
@@ -318,6 +321,7 @@
     if (proofs.length) parts.push('Preuves : ' + proofs.map((p) => p.replace(/\.$/, '')).join(' ; ') + '.');
     const key = keyConstraint(w); if (key) parts.push(`Rappel : ${endDot(stripNum(positive(key) || key))} C’est important !`);
     if (target === 'chatgpt') parts.push('Commence par confirmer en une phrase ce que tu as compris.');
+    if (target === 'grokbot') parts.push(GROKBOT_ACT);
     return parts.map((p) => p.replace(/\.\.$/, '.')).join('\n');
   }
 
@@ -522,7 +526,7 @@ ${p}
     $, $$, uid, esc, icon, words, fmtDate, fmtDay, debounce, clone, tagsFrom, hash,
     load, init, ready, save, saveSoon, storageInfo, resetAll, defaults, getKey, setKey,
     newProject, newPrompt, findProject,
-    PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, FORMATS, LEVELS, emptyWizard, buildPrompt, sectionsOf, renderSections, positive, isNegative, keyConstraint, TARGETS, currentTarget,
+    PROOF, PROOF_LABELS, BLOCKS, BLOCK_ORDER, FORMAT_LABELS, LENGTH_LABELS, FORMATS, LEVELS, emptyWizard, buildPrompt, sectionsOf, renderSections, positive, isNegative, keyConstraint, TARGETS, currentTarget, GROKBOT_ACT,
     CRITERIA, analyze, negLines, keyFromText, diffLines, varsOf, fillVars, CLAUDE_URL_MAX, claudeLink, callClaude, improveMeta,
     download, pickFile, projectToMarkdown, slug, copy, KEY, KEY_API
   });

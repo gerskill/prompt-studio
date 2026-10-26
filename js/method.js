@@ -20,7 +20,7 @@
   function detectType(text, g) {
     const n = norm(text);
     if (['code', 'trading', 'analyse', 'traduction'].includes(g.domain)) return 'technique';
-    if (['projet', 'conseil', 'sport'].includes(g.domain)) return 'complexe';
+    if (['projet', 'web', 'conseil', 'sport'].includes(g.domain)) return 'complexe';
     if (['idees', 'marketing', 'redaction', 'emploi'].includes(g.domain)) return 'creatif';
     if (g.domain === 'apprendre' || has(n, 'expliqu\\w*|comprendre|apprendre|cours|lecon|reviser')) return 'pedagogique';
     if (['projet', 'conseil'].includes(g.domain) || has(n, 'strategie|plan d\'action|feuille de route|business plan|etape par etape|decider|choisir entre')) return 'complexe';
@@ -116,8 +116,8 @@
   }
 
   // ---------- Notes « Ce qui a changé / Techniques / Astuce » (déduites des règles appliquées) ----------
-  const TARGET_NOTE = { claude: 'Pour Claude : la tâche (et, s’il y en a, le contexte et les exemples) est entourée de balises XML comme <tache>, pour bien séparer la consigne du reste.', chatgpt: 'Pour ChatGPT : titres en Markdown (##) et une phrase de démarrage pour qu’il confirme la tâche.', gemini: 'Pour Gemini : consigne de comparer plusieurs approches avant de recommander.', autre: 'Pour une autre IA : sections simples, sans balises particulières.' };
-  const TIPS = { claude: 'Colle le prompt dans une nouvelle conversation Claude. S’il pose des questions, réponds-y avant qu’il commence.', chatgpt: 'Colle le prompt dans une nouvelle conversation ChatGPT : il va d’abord reformuler la tâche ; corrige-le si besoin avant qu’il continue.', gemini: 'Colle le prompt dans Gemini. Si tu hésites entre deux pistes, demande-lui de les comparer dans un tableau.', autre: 'Colle le prompt tel quel. Si l’outil limite la longueur, utilise la version courte de l’assistant détaillé.' };
+  const TARGET_NOTE = { claude: 'Pour Claude : la tâche (et, s’il y en a, le contexte et les exemples) est entourée de balises XML comme <tache>, pour bien séparer la consigne du reste.', chatgpt: 'Pour ChatGPT : titres en Markdown (##) et une phrase de démarrage pour qu’il confirme la tâche.', gemini: 'Pour Gemini : consigne de comparer plusieurs approches avant de recommander.', grokbot: 'Pour Grok Bot : sections avec titres Markdown (##), et une section « Comment travailler » : il peut utiliser ses outils et son ordinateur, puis doit te montrer le résultat avant de publier.', autre: 'Pour une autre IA : sections simples, sans balises particulières.' };
+  const TIPS = { claude: 'Colle le prompt dans une nouvelle conversation Claude. S’il pose des questions, réponds-y avant qu’il commence.', chatgpt: 'Colle le prompt dans une nouvelle conversation ChatGPT : il va d’abord reformuler la tâche ; corrige-le si besoin avant qu’il continue.', gemini: 'Colle le prompt dans Gemini. Si tu hésites entre deux pistes, demande-lui de les comparer dans un tableau.', grokbot: 'Envoie le prompt à Grok Bot dans le chat. Il peut agir lui-même (navigateur, fichiers, code) : il te montrera le résultat et te demandera ton accord avant de publier.', autre: 'Colle le prompt tel quel. Si l’outil limite la longueur, utilise la version courte de l’assistant détaillé.' };
   function notes(w, g, o) {
     const ch = [];
     const S = PS.sectionsOf(w, { target: o.target });
@@ -249,6 +249,7 @@
     for (let i = out.length - 1; i > 0; i--) { const j = out.findIndex((x) => x.k === out[i].k); if (j < i && ['contraintes', 'contexte', 'exemples', 'etapes'].includes(out[i].k)) { out[j].b = [out[j].b, out[i].b].filter(Boolean).join('\n'); out.splice(i, 1); } }
     if (out.map((x) => x.k).join() !== before) ch.push('Sections remises dans l’ordre ASPECCT');
     if (target === 'chatgpt') out.push({ k: 'start', b: 'Pour commencer : confirme en une phrase ce que tu as compris de la tâche, puis réponds.' });
+    if (target === 'grokbot') out.push({ k: 'agir', h: 'COMMENT TRAVAILLER', b: PS.GROKBOT_ACT });
     if (mode === 'detaille' && ap.labels.length) ch.push('Tes réponses prises en compte : ' + ap.labels.join(' ; '));
     ch.push(TARGET_NOTE[target]);
     const prompt = PS.renderSections(out.map((x) => ({ k: x.k, h: x.h, b: x.b })), target);
@@ -286,7 +287,7 @@ Tu appliques une méthode en 4 étapes :
 Le prompt suit la méthode ASPECCT, avec des titres en majuscules : RÔLE / PERSONA, CONTEXTE, ACTION (une phrase explicite, la contrainte clé peut y figurer), ÉTAPES (numérotées), EXEMPLES (plusieurs exemples variés valent mieux qu'un seul ; ils peuvent être listés entre parenthèses), CONTRAINTES / RÈGLES (formulées positivement : « Utilise uniquement… » plutôt que « N'utilise pas… » ; « C'est important ! » pour les règles critiques), MODÈLE DE RÉPONSE (Markdown, bloc de code, formule pour les titres, puces avec justification…), puis RAPPEL : répète la contrainte la plus importante tout à la fin.
 Garde, quand ils sont utiles, les blocs : PROFIL FIXE, MODE DE RÉPONSE (court / complet), RÉFLEXION PRÉALABLE, ÉTAPES UNE À UNE (« suivant »), NIVEAUX DE CONFIANCE [SÛR] / [PROBABLE] / [À VÉRIFIER], TABLEAU DES RISQUES, VÉRIFICATION FINALE.
 Présente comme réels uniquement les faits, chiffres et exemples fournis ou vérifiables : écris [à compléter] pour ce que l'auteur doit fournir. Garde l'intention d'origine.`;
-  const TARGET_SYS = { claude: 'Claude : sections nettes, contexte et exemples entre balises XML (<contexte>, <exemples>), consigne de réflexion étape par étape.', chatgpt: 'ChatGPT : sections avec titres Markdown (##) et, à la fin, une phrase de démarrage qui lui demande de confirmer la tâche.', gemini: 'Gemini : demande-lui de comparer plusieurs approches avant de recommander.', autre: 'une IA quelconque : sections simples et universelles, sans balises particulières.' };
+  const TARGET_SYS = { claude: 'Claude : sections nettes, contexte et exemples entre balises XML (<contexte>, <exemples>), consigne de réflexion étape par étape.', chatgpt: 'ChatGPT : sections avec titres Markdown (##) et, à la fin, une phrase de démarrage qui lui demande de confirmer la tâche.', gemini: 'Gemini : demande-lui de comparer plusieurs approches avant de recommander.', grokbot: 'Grok Bot : sections avec titres Markdown (##) et une section finale « COMMENT TRAVAILLER » qui l’autorise à utiliser ses outils et son ordinateur, et lui demande de montrer le résultat avant de publier.', autre: 'une IA quelconque : sections simples et universelles, sans balises particulières.' };
   const systemFor = (target) => `${SYSTEM}\nAdapte la forme du prompt à ${TARGET_SYS[target] || TARGET_SYS.claude}`;
 
   PS.method = { TYPES, detectType, complexity, decompose, diagnose, questions, applyAnswers, answersOf, develop, notes, phrasePipeline, optimize, parse, isHeading,

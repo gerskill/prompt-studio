@@ -53,7 +53,11 @@
       role: 'un professeur patient et pédagogue', audience: 'Moi, qui veux comprendre le sujet.', niveau: 'debutant', ton: ['pédagogique', 'simple'], format: 'paragraphes', longueur: 'moyenne',
       contraintes: ['Pars de ce que je connais déjà, sans jargon (ou explique chaque terme)', 'Donne un exemple concret de la vie courante', 'Termine par 3 questions pour vérifier que j’ai compris'],
       proof: { stats: true, examples: true, obs: true, spec: true, sources: true, unknown: true }, blocks: { reflexion: true, tags: true, verif: true }, etapes: ['Explique l’idée principale simplement', 'Donne une analogie et un exemple concret', 'Détaille les points importants', 'Termine par 3 questions de vérification'], exemplesNote: 'Analogies du quotidien bienvenues (cuisine, sport, argent de poche, transports). Plusieurs exemples variés aident plus qu’un seul très précis.', verb: 'Explique', livrable: 'Je peux réexpliquer le sujet avec mes mots.' },
-    { id: 'projet', label: 'Projet / app / site', kw: [['projet|app|appli|application|site|site web|site internet|startup|start-up|mvp|plateforme|logiciel|saas|roadmap|feuille de route|cahier des charges|maquette|prototype|lancer|lancement|business plan|entreprise|boutique en ligne|e-commerce', 2]],
+    { id: 'web', label: 'Site / app web', kw: [['site web|site internet|page web|application web|web ?app|dashboard|tableau de bord|interface web|front-?end|back-?end|pwa|extension (?:chrome|navigateur)', 3], ['site|app|appli|application|outil en ligne|plateforme web|heberg\\w*|deploy\\w*|deploie\\w*|github pages|vercel|netlify', 1]],
+      role: 'un développeur full-stack senior, spécialiste des sites et applications web', audience: 'Moi, et les personnes qui utiliseront le site ou l’application.', ton: ['direct', 'technique'], format: 'etapes', longueur: 'auto',
+      contraintes: ['Livre un code complet, fonctionnel et commenté, chaque fichier écrit en entier', 'Commence par la version 1 la plus simple qui marche, puis propose les améliorations'],
+      proof: { examples: true, spec: true, unknown: true }, blocks: { reflexion: true, verif: true }, etapes: ['Reformule les besoins', 'Liste les pages', 'Écris le code', 'Explique le déploiement'], verb: 'Crée', livrable: 'Je peux ouvrir le site, l’utiliser tout de suite et je sais comment le mettre en ligne.' },
+    { id: 'projet', label: 'Projet / lancement', kw: [['projet|app|appli|application|site|site web|site internet|startup|start-up|mvp|plateforme|logiciel|saas|roadmap|feuille de route|cahier des charges|maquette|prototype|lancer|lancement|business plan|entreprise|boutique en ligne|e-commerce', 2]],
       role: 'un chef de projet produit expérimenté', audience: 'Moi et les personnes qui travailleront sur le projet.', ton: ['direct', 'simple'], format: 'etapes', longueur: 'auto',
       contraintes: ['Commence par le plus petit résultat utile (version 1)', 'Pour chaque étape : objectif, actions, résultat attendu', 'Signale ce qui coûte du temps ou de l’argent'],
       proof: { stats: true, examples: true, spec: true, unknown: true }, blocks: { reflexion: true, etapes: true, risques: true, verif: true }, etapes: ['Reformule le projet et son objectif', 'Définis la version 1 la plus simple', 'Découpe en étapes avec un résultat attendu pour chacune', 'Signale les risques, les coûts et le temps nécessaire'], verb: 'Prépare', livrable: 'Je sais exactement quoi faire en premier.' },
@@ -108,15 +112,43 @@
   }
 
   // ---------- Déduction ----------
+  // Livrable principal (ce qu'on veut obtenir) : pèse plus que les mots du sujet.
+  // « un site qui affiche des backtests » → site web (le trading n'est que le sujet).
+  const DELIV = [
+    ['web', 'site(?: web| internet)?|page web|app|appli|application(?: web| mobile)?|web ?app|dashboard|tableau de bord|outil(?: en ligne| web)?|interface(?: web)?|plateforme(?: web)?|extension(?: chrome| navigateur)?|pwa'],
+    ['emploi', 'lettre de motivation|cv|curriculum'],
+    ['code', 'script|programme (?:python|javascript|en python|en js)|bot|robot|fonction|macro|api|requete sql'],
+    ['trading', 'strategie(?: de trading)?|indicateur|backtest'],
+    ['redaction', 'article|mail|e-mail|email|lettre|discours|message'],
+    ['marketing', 'post|publication|slogan|campagne|newsletter']
+  ];
+  // Verbe d'action qui décide seul du domaine (« Résume cet article » reste un résumé)
+  const LEAD = [['traduction', 'tradui\\w*'], ['resume', 'resum\\w*|synthetis\\w*'], ['analyse', 'analys\\w*'], ['apprendre', 'expliqu\\w*']];
+  const BUILD = '(?:^|cree\\w*|creer|fai\\w*|developpe\\w*|code\\w*|construi\\w*|concoi\\w*|concevoir|genere\\w*|ecri\\w*|redige\\w*|prepare\\w*|veux|voudrais|faut|besoin d\'|besoin de|un|une|mon|ma|nouveau|nouvelle|petit|petite|mini)';
+  function deliverable(n) {
+    const t = stripPrefix(n);
+    if (LEAD.some(([, re]) => new RegExp('^(?:' + re + ')(?![a-z])').test(t))) return null;
+    let best = null;
+    DELIV.forEach(([id, re]) => {
+      const m = new RegExp('(?:^|[^a-z0-9])' + BUILD + '(?:[\\s\'-]+(?:moi|un|une|des|le|la|les|l\'|mon|ma|mes|petit|petite|mini|nouveau|nouvelle|simple))*[\\s\'-]*(' + re + ')(?![a-z0-9])').exec(t);
+      if (m && (!best || m.index < best.i || (m.index === best.i && m[1].length > best.len))) best = { id, i: m.index, len: m[1].length, word: m[1] };
+    });
+    return best;
+  }
   function detectDomain(n) {
     let best = DOM.general, bestScore = 0;
     const scores = {};
     DOMAINS.forEach((d) => {
       const s = d.kw.reduce((a, [re, w]) => a + Math.min(3, count(n, re)) * w, 0);
       scores[d.id] = s;
-      if (s > bestScore) { best = d; bestScore = s; }
     });
-    return { d: best, scores };
+    const dv = deliverable(n);
+    if (dv) scores[dv.id] = (scores[dv.id] || 0) + 12;
+    DOMAINS.forEach((d) => { if (scores[d.id] > bestScore) { best = d; bestScore = scores[d.id]; } });
+    // Sujet : le meilleur autre domaine (ex. trading pour un site de backtests)
+    let topic = null, ts = 0;
+    DOMAINS.forEach((d) => { if (d.id !== best.id && d.id !== 'projet' && d.id !== 'web' && d.id !== 'general' && scores[d.id] > ts) { topic = d.id; ts = scores[d.id]; } });
+    return { d: best, scores, deliverable: dv, topic: ts >= 2 ? topic : null };
   }
   function hints(sentence) {
     const n = norm(sentence);
@@ -166,7 +198,7 @@
     if (!ov.domain && d.id === 'general' && extra.hintText) { const d2 = detectDomain(norm(extra.hintText)).d; if (d2.id !== 'general') d = d2; }
     const h = hints(sentence);
     const g = {
-      sentence: String(sentence || '').trim(), domain: d.id, domainLabel: d.label, auto: det.d.id, scores: det.scores,
+      sentence: String(sentence || '').trim(), topic: d.id === det.d.id ? det.topic : null, domain: d.id, domainLabel: d.label, auto: det.d.id, scores: det.scores,
       role: d.role, audience: h.audience || d.audience, niveau: h.niveau || d.niveau || '',
       ton: h.ton.length ? h.ton.slice(0, 2) : d.ton.slice(), format: h.format || d.format, formatDetail: '',
       longueur: h.longueur || d.longueur, longueurDetail: h.longueurDetail || '',
@@ -201,7 +233,8 @@
     // Base ASPECCT détaillée (persona riche, étapes, exemples, contexte, règles, modèle)
     const RX = PS.rich && PS.rich.R[d.id];
     if (RX) {
-      g.rich = true; g.persona = RX.persona; g.modele = RX.modele.slice(); g.ctxRich = RX.ctx; g.facts = PS.rich.facts(sentence, d.id);
+      g.rich = true; g.persona = RX.persona; g.modele = RX.modele.slice(); g.ctxRich = RX.ctx; g.facts = PS.rich.facts(sentence, d.id, g.topic);
+      if (RX.topicRules && g.topic && RX.topicRules[g.topic]) RX.topicRules[g.topic].forEach((c) => { if (!g.contraintes.includes(c)) g.contraintes.splice(2, 0, c); });
       if (!(d.id === 'emploi' && has(n, 'entretien'))) g.etapes = RX.etapes.slice();
       g.exemplesNote = RX.exemples.map((x) => '- ' + x).join('\n');
       const key0 = (s) => norm(s).replace(/[^a-z ]/g, '').slice(0, 28);
