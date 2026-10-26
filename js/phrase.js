@@ -115,7 +115,7 @@
   // Livrable principal (ce qu'on veut obtenir) : pèse plus que les mots du sujet.
   // « un site qui affiche des backtests » → site web (le trading n'est que le sujet).
   const DELIV = [
-    ['web', 'site(?: web| internet)?|page web|app|appli|application(?: web| mobile)?|web ?app|dashboard|tableau de bord|outil(?: en ligne| web)?|interface(?: web)?|plateforme(?: web)?|extension(?: chrome| navigateur)?|pwa'],
+    ['web', 'boutique en ligne|e-?commerce|site(?: web| internet)?|page web|app|appli|application(?: web| mobile)?|web ?app|dashboard|tableau de bord|outil(?: en ligne| web)?|interface(?: web)?|plateforme(?: web)?|extension(?: chrome| navigateur)?|pwa'],
     ['emploi', 'lettre de motivation|cv|curriculum'],
     ['code', 'script|programme (?:python|javascript|en python|en js)|bot|robot|fonction|macro|api|requete sql'],
     ['trading', 'strategie(?: de trading)?|indicateur|backtest'],
@@ -206,7 +206,7 @@
       contraintes: d.contraintes.slice(), exclure: [], proof: Object.assign({}, BASE_PROOF, { stats: false, examples: false, unknown: false }, d.proof),
       blocks: Object.assign({ profil: false, mode: false, reflexion: false, etapes: false, tags: false, risques: false, verif: true }, d.blocks),
       etapes: (d.etapes || []).slice(), exemplesNote: d.exemplesNote || '', rappel: d.rappel || '',
-      objectif: reform(sentence, d), livrable: d.livrable, why: h.why, tutoie: !!h.tutoie, vouvoie: !!h.vouvoie, needsText: !!d.needsText, needsProfile: !!d.needsProfile
+      objectif: reform(PS.perso ? PS.perso.correct(sentence) : sentence, d), livrable: d.livrable, why: h.why, tutoie: !!h.tutoie, vouvoie: !!h.vouvoie, needsText: !!d.needsText, needsProfile: !!d.needsProfile
     };
     if (g.format === 'code' && d.id !== 'code' && d.id !== 'trading') g.format = 'libre';
     if (d.id === 'trading' && has(n, 'pine ?script|pine|tradingview|indicateur|backtest\\w*')) { g.format = 'code'; g.contraintes.unshift('Code Pine Script v6 complet, commenté, qui compile dans TradingView'); }
@@ -243,6 +243,9 @@
       const addR = (c, max) => { if (g.contraintes.length < max && !dup(c)) g.contraintes.push(c); };
       RX.regles.forEach((c) => addR(c, 6)); PS.rich.COMMON.forEach((c) => addR(c, 7));
       if (!g.rappel) g.rappel = g.contraintes[0] || '';
+      g.roleAuto0 = g.role;
+      if (PS.perso) PS.perso.apply(g, sentence);
+      g.roleAuto = g.role;
     }
     const prof = (PS.state && PS.state.settings && PS.state.settings.profil || '').trim();
     if (prof) { g.blocks.profil = true; g.profilText = prof; }
@@ -268,7 +271,7 @@
     const dd = DOM[g.domain];
     if (g.rich) {
       w.rich = true; w.modele = (g.modele || []).join('\n');
-      if (g.persona && dd && g.role === dd.role) { const P = g.persona; w.roleExtra = `Tu as ${P.xp}.\nTa spécialité : ${P.spec}.\nTa conviction : ${P.persp}.\nTa voix : ${P.voix}. Tu parles avec ce point de vue d’expert dans toute ta réponse`; }
+      if (g.persona && dd && (g.role === dd.role || g.role === g.roleAuto)) { const P = g.persona; w.roleExtra = `Tu as ${P.xp}.\nTa spécialité : ${P.spec}.\nTa conviction : ${P.persp}.\nTa voix : ${P.voix}. Tu parles avec ce point de vue d’expert dans toute ta réponse`; }
     } w.exemplesNote = g.exemplesNote || ''; w.rappel = g.rappel || '';
     const cons = g.contraintes.slice();
     if (ctx && ctx.text) cons.unshift('Appuie-toi sur le contexte du projet ci-dessus ; si une information manque, demande-la au lieu de la supposer');
