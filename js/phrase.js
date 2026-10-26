@@ -24,7 +24,7 @@
       role: 'un recruteur expérimenté et coach en candidature', audience: 'Un recruteur qui lit vite (moins d’une minute par candidature).', ton: ['professionnel', 'chaleureux'], format: 'paragraphes', longueur: 'moyenne',
       contraintes: ['Utilise uniquement les expériences, diplômes, compétences et chiffres que je fournis ; sinon, écris [À COMPLÉTER]', 'Mets en avant ce qui correspond le mieux au poste visé', 'Phrases courtes, verbes d’action'],
       proof: { stats: true, examples: true, unknown: true }, blocks: { reflexion: true, verif: true }, etapes: ['Repère les attentes principales du poste', 'Relie chaque attente à un élément réel de mon parcours', 'Rédige le texte', 'Liste ce que je dois compléter ou vérifier'], exemplesNote: 'Verbes d’action possibles (piloté, conçu, amélioré, formé, négocié).', verb: 'Rédige', livrable: 'Le texte est prêt à envoyer après avoir complété les crochets.', needsProfile: true },
-    { id: 'trading', label: 'Trading / Pine', kw: [['pine ?script|pine|tradingview|backtest\\w*', 4], ['trading|trader|bourse|crypto\\w*|bitcoin|btc|forex|indicateur|rsi|macd|bollinger|chandeliers?|scalping|swing|stop[- ]loss|take[- ]profit|portefeuille|etf|actions? en bourse', 2], ['strategie de trading|strategie', 1]],
+    { id: 'trading', label: 'Trading / Pine', kw: [['pine ?script|pine|tradingview|backtest\\w*', 4], ['trading|trader|bourse|crypto\\w*|bitcoin|btc|forex|indicateur|rsi|macd|bollinger|chandeliers?|scalping|swing|stop[- ]loss|take[- ]profit|portefeuille|etf|actions? en bourse', 2], ['ichimoku|xauusd|xau|kumo|tenkan|kijun|prop ?firm|ftmo', 3], ['strategie de trading|strategie', 1]],
       role: 'un analyste quantitatif prudent, expert en Pine Script et en backtests', audience: 'Moi, trader particulier.', ton: ['direct', 'technique'], format: 'etapes', longueur: 'auto',
       contraintes: ['Présente uniquement des résultats issus d’un vrai backtest ; sinon, écris [À TESTER]', 'Parle de risques et de frais plutôt que de gains promis', 'Distingue ce qui est testé de ce qui est une idée'],
       proof: { stats: true, examples: true, obs: true, spec: true, unknown: true }, blocks: { reflexion: true, tags: true, risques: true, verif: true }, etapes: ['Reformule la stratégie et ses règles', 'Écris le code ou la méthode', 'Explique comment la tester (période, frais, nombre de trades)', 'Termine par les risques et les limites'], rappel: 'Présente uniquement des résultats issus d’un vrai backtest ; sinon, écris [À TESTER]', verb: 'Crée', livrable: 'Je peux tester le résultat moi-même et je connais ses limites.' },
@@ -198,6 +198,19 @@
     if (g.niveau === 'debutant' && !g.contraintes.some((c) => /jargon/.test(c))) g.contraintes.push('Utilise des mots simples de tous les jours, et explique chaque terme technique');
     if (h.tutoie) g.tonExtra = 'Tutoie-moi';
     if (h.vouvoie) g.tonExtra = 'Vouvoiement';
+    // Base ASPECCT détaillée (persona riche, étapes, exemples, contexte, règles, modèle)
+    const RX = PS.rich && PS.rich.R[d.id];
+    if (RX) {
+      g.rich = true; g.persona = RX.persona; g.modele = RX.modele.slice(); g.ctxRich = RX.ctx; g.facts = PS.rich.facts(sentence, d.id);
+      if (!(d.id === 'emploi' && has(n, 'entretien'))) g.etapes = RX.etapes.slice();
+      g.exemplesNote = RX.exemples.map((x) => '- ' + x).join('\n');
+      const key0 = (s) => norm(s).replace(/[^a-z ]/g, '').slice(0, 28);
+      const core = (x) => norm(x).replace(/^(ecris|utilise|donne|propose|termine par|place|mets|garde|fais)\s+/, '').replace(/[^a-z ]/g, '').trim();
+      const dup = (c) => g.contraintes.some((x) => key0(x) === key0(c) || core(x).includes(core(c)) || core(c).includes(core(x)));
+      const addR = (c, max) => { if (g.contraintes.length < max && !dup(c)) g.contraintes.push(c); };
+      RX.regles.forEach((c) => addR(c, 6)); PS.rich.COMMON.forEach((c) => addR(c, 7));
+      if (!g.rappel) g.rappel = g.contraintes[0] || '';
+    }
     const prof = (PS.state && PS.state.settings && PS.state.settings.profil || '').trim();
     if (prof) { g.blocks.profil = true; g.profilText = prof; }
     // Choix explicites de l'utilisateur (puces)
@@ -218,7 +231,12 @@
     w.audience = g.audience; w.niveau = g.niveau;
     w.format = g.format; w.formatDetail = g.formatDetail; w.ton = g.ton.slice(); w.tonExtra = g.tonExtra || '';
     w.longueur = g.longueur; w.longueurDetail = g.longueurDetail;
-    w.etapes = (g.etapes || []).join('\n'); w.exemplesNote = g.exemplesNote || ''; w.rappel = g.rappel || '';
+    w.etapes = (g.etapes || []).join('\n');
+    const dd = DOM[g.domain];
+    if (g.rich) {
+      w.rich = true; w.modele = (g.modele || []).join('\n');
+      if (g.persona && dd && g.role === dd.role) { const P = g.persona; w.roleExtra = `Tu as ${P.xp}.\nTa spécialité : ${P.spec}.\nTa conviction : ${P.persp}.\nTa voix : ${P.voix}. Tu parles avec ce point de vue d’expert dans toute ta réponse`; }
+    } w.exemplesNote = g.exemplesNote || ''; w.rappel = g.rappel || '';
     const cons = g.contraintes.slice();
     if (ctx && ctx.text) cons.unshift('Appuie-toi sur le contexte du projet ci-dessus ; si une information manque, demande-la au lieu de la supposer');
     w.contraintes = cons.join('\n');
@@ -227,9 +245,12 @@
     w.blocks = Object.assign({}, g.blocks); w.profilText = g.profilText || '';
     w.french = g.lang === 'français';
     if (g.lang !== 'français' && g.domain !== 'traduction') w.contraintes += `\nRéponds en ${g.lang}`;
-    if (ctx && ctx.text) { w.contexte = ctx.text; w.contexteTitle = 'CONTEXTE DU PROJET'; }
-    else if (g.needsText) w.contexte = `Le texte à traiter est ci-dessous (ou je te l’envoie juste après) :\n"""\n[à compléter]\n"""`;
-    else if (g.needsProfile) w.contexte = 'Mon parcours (expériences, diplômes, compétences) : [à compléter]\nLe poste ou l’offre visé(e) : [à compléter]';
+    const C = g.rich && g.ctxRich ? [`Situation : ${g.ctxRich.sit}.`, `Objectif : ${g.ctxRich.but}.`, `Enjeux : ${g.ctxRich.enjeux}.`].concat((g.facts || []).map(([k, v]) => `${k} : ${v}`), g.ctxRich.inconnues.filter((x) => !(g.facts || []).some(([k]) => norm(x).startsWith(norm(k).slice(0, 8)))).map((x) => `${x} : [À PRÉCISER]`)).join('\n') : '';
+    if (ctx && ctx.text) { w.contexte = ctx.text + (C ? '\n\nSITUATION ET ENJEUX\n' + C : ''); w.contexteTitle = 'CONTEXTE DU PROJET'; }
+    else if (g.needsText) w.contexte = (C ? C + '\n\n' : '') + `Le texte à traiter est ci-dessous (ou je te l’envoie juste après) :\n"""\n[à compléter]\n"""`;
+    else if (g.needsProfile) w.contexte = (C ? C + '\n\n' : '') + 'Mon parcours (expériences, diplômes, compétences) : [à compléter]\nLe poste ou l’offre visé(e) : [à compléter]';
+    else if (C) w.contexte = C;
+    if (C) w.contexte += '\nPour chaque [À PRÉCISER] : si l’information te manque pour bien répondre, pose-moi la question ; sinon, annonce ton hypothèse.';
     // phrase d'origine, si la reformulation l'a modifiée
     const flat = (x) => norm(x).replace(/[^a-z0-9]/g, '');
     if (g.sentence && !flat(g.objectif).includes(flat(stripPrefix(g.sentence.replace(/[’`]/g, "'").trim().replace(/[.!?…]+$/, ''))))) w.objectif += `\nMa demande telle que je l’ai écrite : « ${g.sentence.replace(/\s+/g, ' ')} »`;

@@ -198,7 +198,7 @@
       format: 'libre', formatDetail: '', ton: [], tonExtra: '', longueur: 'auto', longueurDetail: '', exemples: '', exemplesNote: '', etapes: '', rappel: '',
       proof: { stats: true, examples: true, obs: true, spec: true, sources: false, unknown: true },
       blocks: { profil: false, mode: false, reflexion: true, etapes: false, tags: true, risques: false, verif: true },
-      profilText: '', modeDefault: 'complet', french: true };
+      profilText: '', modeDefault: 'complet', french: true, rich: false, modele: '' };
   }
   const lines = (s) => String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);
   const bullets = (s) => lines(s).map((l) => (/^[-•*\d]/.test(l) ? l.replace(/^[•*]\s*/, '- ') : '- ' + l)).join('\n');
@@ -233,6 +233,7 @@
   // Action, Étapes, Persona, Exemples, Contexte, Contraintes, Modèle, puis rappel final de la contrainte clé
   const TARGETS = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', autre: 'Autre IA' };
   const currentTarget = () => (state && state.settings && TARGETS[state.settings.target] ? state.settings.target : 'claude');
+  const lowF = (x) => (/^[A-ZÀ-Ý][a-zà-ÿ’']/.test(x) ? x.charAt(0).toLowerCase() + x.slice(1) : x);
   const stripNum = (l) => l.replace(/^(?:\d+[.)]|[-•*])\s*/, '');
   const numbered = (s) => lines(s).map((l, i) => `${i + 1}. ${stripNum(l)}`).join('\n');
   function keyConstraint(w) {
@@ -251,7 +252,8 @@
       return [h, b].filter(Boolean).join('\n');
     }).join('\n\n');
   }
-  const roleLine = (w, P) => (w.role.trim() ? `Tu es ${w.role.trim().replace(/^(tu es|vous êtes)\s+/i, '')}${w.roleExtra.trim() ? '. ' + w.roleExtra.trim() : ''}.`.replace(/\.\.$/, '.') : `Tu es ${P}.`);
+  const roleLine = (w, P) => (w.rich && w.role.trim() && /\n/.test(w.roleExtra || '') ? `Tu es ${w.role.trim().replace(/^(tu es|vous êtes)\s+/i, '')}.\n${w.roleExtra.trim()}.` : roleLine0(w, P));
+  const roleLine0 = (w, P) => (w.role.trim() ? `Tu es ${w.role.trim().replace(/^(tu es|vous êtes)\s+/i, '')}${w.roleExtra.trim() ? '. ' + w.roleExtra.trim() : ''}.`.replace(/\.\.$/, '.') : `Tu es ${P}.`);
   const parts3 = (w) => ({
     tone: [...(w.ton || []), w.tonExtra].filter((x) => x && x.trim()).join(', '),
     fmt: [FORMATS[w.format] || '', w.formatDetail].filter(Boolean).join(' '),
@@ -272,14 +274,15 @@
     S.push({ k: 'role', h: 'RÔLE / PERSONA', b: roleLine(w, P) });
     if (blocks.includes('profil')) { const t = BLOCKS.profil.text(w).split('\n'); S.push({ k: 'profil', h: t[0], b: t.slice(1).join('\n') }); }
     if (w.contexte.trim()) S.push({ k: 'contexte', h: w.contexteTitle || 'CONTEXTE', b: w.contexte.trim() });
-    S.push({ k: 'action', h: 'ACTION', b: `${w.objectif.trim() || P}${w.livrable.trim() ? '\nC’est réussi quand : ' + w.livrable.trim() : ''}` });
+    S.push({ k: 'action', h: 'ACTION', b: `${w.objectif.trim() || P}${w.rich && keyPos ? '\nContrainte clé : ' + endDot(stripNum(keyPos)) : ''}${w.livrable.trim() ? '\nC’est réussi quand : ' + w.livrable.trim() : ''}` });
     if (w.audience.trim() || w.niveau) S.push({ k: 'audience', h: 'AUDIENCE', b: [w.audience.trim(), LEVELS[w.niveau] ? 'Niveau : ' + LEVELS[w.niveau] + '.' : ''].filter(Boolean).join('\n') });
     if (lines(w.etapes).length) S.push({ k: 'etapes', h: 'ÉTAPES', b: numbered(w.etapes) + (target === 'claude' && !blocks.includes('reflexion') ? '\nRéfléchis à chaque étape avant de passer à la suivante.' : '') });
     const ex = (w.exemples || '').trim(), exN = (w.exemplesNote || '').trim();
     if (ex || exN) S.push({ k: 'exemples', h: 'EXEMPLES' + (ex ? ' (pour le style et le niveau attendus, pas à recopier)' : ''), b: [exN, ex ? '"""\n' + ex + '\n"""' : ''].filter(Boolean).join('\n') });
-    if (cons.length) S.push({ k: 'contraintes', h: 'CONTRAINTES / RÈGLES', b: cons.map((c) => '- ' + stripNum(c)).join('\n') });
+    if (cons.length) S.push({ k: 'contraintes', h: 'CONTRAINTES / RÈGLES', b: cons.map((c, i) => '- ' + (w.rich && i === 0 && keyPos && stripNum(c) === stripNum(keyPos) ? 'C’est important ! ' : '') + stripNum(c)).join('\n') });
     const fl = [fmt && 'Format : ' + fmt, len && 'Longueur : ' + len, tone && 'Ton : ' + tone + '.'].filter(Boolean);
     if (target === 'gemini') fl.push('Si plusieurs approches sont possibles, compare-les en quelques lignes (points forts, limites) avant de recommander la meilleure.');
+    if (w.rich && (w.modele || '').trim()) fl.push('Structure attendue (Markdown, titres ## dans cet ordre) :\n' + w.modele.trim().split('\n').map((l) => '  ' + l).join('\n'), 'Mets en **gras** les mots et chiffres clés. Pour chaque choix important, ajoute en une ligne pourquoi tu l’as fait.');
     if (fl.length) S.push({ k: 'modele', h: 'MODÈLE DE RÉPONSE', b: fl.join('\n') });
     if (blocks.includes('reflexion')) S.push({ k: 'reflexion', b: BLOCKS.reflexion.text(w) });
     if (blocks.includes('etapes')) S.push({ k: 'pas', b: BLOCKS.etapes.text(w) });
@@ -288,7 +291,7 @@
     if (blocks.includes('tags')) S.push({ k: 'tags', b: BLOCKS.tags.text(w) });
     if (blocks.includes('risques')) S.push({ k: 'risques', b: BLOCKS.risques.text(w) });
     if (blocks.includes('verif')) S.push({ k: 'verif', b: BLOCKS.verif.text(w) });
-    if (keyPos) S.push({ k: 'rappel', h: 'RAPPEL', b: `${endDot(stripNum(keyPos))} C’est important !` });
+    if (keyPos) S.push({ k: 'rappel', h: 'RAPPEL', b: `${w.rich ? 'Et n’oublie pas : ' + lowF(endDot(stripNum(keyPos))) : endDot(stripNum(keyPos))} C’est important !` });
     if (target === 'chatgpt') S.push({ k: 'start', b: 'Pour commencer : confirme en une phrase ce que tu as compris de la tâche, puis réponds.' });
     return S;
   }
